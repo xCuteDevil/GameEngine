@@ -1,0 +1,8 @@
+.vs
+out
+dist
+temp
+ext/vcpkg/buildtrees/*
+ext/vcpkg/downloads/*
+ext/vcpkg/packages/*
+ext/vcpkg/vcpkg.exe
