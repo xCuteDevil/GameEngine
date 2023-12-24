@@ -39,11 +39,13 @@ class Shape {
       // Getters
       Matrix4x4 GetModelMatrix();
       const std::vector<unsigned int>& GetIndices() const;
+      const std::vector<Vertex>& GetVertices() const;
       unsigned int GetVertexArray() const;
       unsigned int GetVertexBuffer() const;
       unsigned int GetIndexBuffer() const;
       unsigned int GetTexture() const;
 	  Vector4D GetColour() const;
+      Vector4D GetOrigin() const;
       
       // Setters
       void SetTexture(unsigned int texture);

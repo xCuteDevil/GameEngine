@@ -127,7 +127,7 @@ void Application::startGame() {
     shapes.push_back(ground);
 
     // Ball
-    model = Matrix4x4(1.0).Translate(1.5, 0, 1);
+    model = Matrix4x4(1.0).Translate(1, 0, 1) * Matrix4x4(1.0).Scale(0.75, 0.75, 0.75);
     
 	Sphere ball = *new Sphere(Vector4D(0, 0, 0, 1), 0.2f, 16, 16, Vector4D(0, 0.5, 1, 1));
     
@@ -138,8 +138,8 @@ void Application::startGame() {
     auto toRadians = [](float degrees) { return degrees * 3.14159265358979323846f / 180.0f; };
 
     // Brick configuration
-    const int bricksPerStory = 5;
-    const int numberOfStories = 1;
+    const int bricksPerStory = 7;
+    const int numberOfStories = 3;
     const float brickHeight = 0.2f;
     const float brickWidth = 0.2f;
     const float radius = 1.5f;
@@ -172,14 +172,14 @@ void Application::startGame() {
             );
 
             // Cycle through the color array
-            Vector4D brickColor = colors[(i+1) % colors.size()];
+            Vector4D brickColor = colors[(i+story+1) % colors.size()];
 
-            Brick brick(position, brickInnerRadius, brickWidth, brickHeight, bricksPerStory, brickDetail, brickColor);
+            Brick brick(Vector4D(0,0,0,1), brickInnerRadius, brickWidth, brickHeight, bricksPerStory, brickDetail, brickColor);
 
             // Initial transformation: place the brick at the calculated position and rotate to face outward
-            Matrix4x4 brickModel = Matrix4x4::Translate(position.x, position.y, position.z)
-                .Rotate(-currentAngleRadians, Vector4D(0, 1, 0, 0))  // Rotate around Y to face outward
-                * Matrix4x4::Scale(2, 2, 2);  // Scale, if necessary
+            Matrix4x4 brickModel = Matrix4x4::Translate(0,position.y,0)
+                * Matrix4x4(1.0).Rotate(-currentAngleRadians, Vector4D(0, 1, 0, 0))
+                * Matrix4x4::Scale(1.5, 1, 1.5);
             brick.SetModelMatrix(brickModel);
 
             shapes.push_back(brick);

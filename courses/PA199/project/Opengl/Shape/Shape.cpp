@@ -123,120 +123,9 @@ std::pair<std::vector<Vertex>, std::vector<unsigned int>> Brick::GenerateMesh(
     float outerRadius = innerRadius + width;
     float brickAngle = (2.0f * M_PI) / count;
     float angleIncrement = brickAngle / detail;
-
-    // Normals for top and bottom faces
-    Vector4D normalTop(0.0f, -1.0f, 0.0f, 0.0f);
-    Vector4D normalBottom(0.0f, 1.0f, 0.0f, 0.0f);
-
-    // Top and bottom vertices
-    for (int i = 0; i <= detail; ++i) {
-        float angle = i * angleIncrement;
-        float cosA = cos(angle);
-        float sinA = sin(angle);
-
-        // Calculate the normals for the curved surfaces
-        Vector4D normalOuter(-cosA, 0.0f, -sinA, 0.0f);  // Radially outward for the outer surface
-        Vector4D normalInner(cosA, 0.0f, sinA, 0.0f); // Radially inward for the inner surface
-
-        // Normalize the vectors
-        normalOuter = normalOuter.UnitVector();
-        normalInner = normalInner.UnitVector();
-
-        // Outer vertices (top)
-        vertices.push_back({ outerRadius * cosA, height, outerRadius * sinA, cosA, sinA, (float)normalTop.x, (float)normalTop.y, (float)normalTop.z });
-
-        // Inner vertices (top)
-        vertices.push_back({ innerRadius * cosA, height, innerRadius * sinA, -cosA, sinA, (float)normalTop.x, (float)normalTop.y, (float)normalTop.z });
-
-        // Outer vertices (bottom)
-        vertices.push_back({ outerRadius * cosA, 0.0f, outerRadius * sinA, cosA, -sinA, (float)normalBottom.x, (float)normalBottom.y, (float)normalBottom.z });
-
-        // Inner vertices (bottom)
-        vertices.push_back({ innerRadius * cosA, 0.0f, innerRadius * sinA, -cosA, -sinA, (float)normalBottom.x, (float)normalBottom.y, (float)normalBottom.z });
-        
-        // End cap normals (for the first and last segments)
-        if (i == 0 || i == detail) {
-            // The end cap normals are tangential to the end segments, so they will
-            // be perpendicular to the radial direction defined by cosA and sinA
-            Vector4D normalEndCap = (i == 0) ? Vector4D(-sinA, cosA, 0.0f, 0.0f) : Vector4D(sinA, -cosA, 0.0f, 0.0f);
-            normalEndCap = normalEndCap.UnitVector();
-            
-        }
     
-    }
-
-    // Create indices
-    for (int i = 0; i < detail; ++i) {
-        int outerTop1 = i * 4;
-        int outerBottom1 = outerTop1 + 1;
-        int innerTop1 = outerTop1 + 2;
-        int innerBottom1 = outerTop1 + 3;
-
-        int outerTop2 = outerTop1 + 4;
-        int outerBottom2 = outerTop2 + 1;
-        int innerTop2 = outerTop2 + 2;
-        int innerBottom2 = outerTop2 + 3;
-
-        // Outer face
-        indices.push_back(outerTop1);
-        indices.push_back(outerBottom2);
-        indices.push_back(outerBottom1);
-
-        indices.push_back(outerTop1);
-        indices.push_back(outerTop2);
-        indices.push_back(outerBottom2);
-
-        // Inner face
-        indices.push_back(innerTop1);
-        indices.push_back(innerBottom1);
-        indices.push_back(innerBottom2);
-
-        indices.push_back(innerTop1);
-        indices.push_back(innerBottom2);
-        indices.push_back(innerTop2);
-
-        // Top face
-        indices.push_back(innerTop1);
-        indices.push_back(outerTop2);
-        indices.push_back(outerTop1);
-
-        indices.push_back(innerTop1);
-        indices.push_back(innerTop2);
-        indices.push_back(outerTop2);
-
-        // Bottom face
-        indices.push_back(innerBottom1);
-        indices.push_back(outerBottom1);
-        indices.push_back(outerBottom2);
-
-        indices.push_back(innerBottom1);
-        indices.push_back(outerBottom2);
-        indices.push_back(innerBottom2);
-
-        // End caps
-        if (i == 0) { // First end cap
-            indices.push_back(innerTop1);
-            indices.push_back(innerBottom1);
-            indices.push_back(outerBottom1);
-
-            indices.push_back(innerTop1);
-            indices.push_back(outerBottom1);
-            indices.push_back(outerTop1);
-        }
-
-        if (i == detail - 1) { // Second end cap
-            indices.push_back(outerTop2);
-            indices.push_back(outerBottom2);
-            indices.push_back(innerBottom2);
-
-            indices.push_back(outerTop2);
-            indices.push_back(innerBottom2);
-            indices.push_back(innerTop2);
-        }
-    }
-	//CalculateNormals(vertices, indices);
-
-    return { vertices, indices };
+	Paddle p(GetOrigin(), innerRadius, width, height, 2*M_PI/count, detail, GetColour());
+    return { p.GetVertices(), p.GetIndices()};
 }
 
 // GenerateMesh function creates a 3D mesh for a paddle-shaped object.
@@ -426,6 +315,11 @@ const std::vector<unsigned int>& Shape::GetIndices() const
     return indices;
 }
 
+const std::vector<Vertex>& Shape::GetVertices() const
+{
+    return vertices;
+}
+
 unsigned int Shape::GetVertexArray() const
 {
     return vertex_array;
@@ -449,6 +343,11 @@ unsigned int Shape::GetTexture() const
 Vector4D Shape::GetColour() const 
 {
 	return colour;
+}
+
+Vector4D Shape::GetOrigin() const
+{
+	return origin;
 }
 
 void Shape::GenerateAndBindBuffers() {
