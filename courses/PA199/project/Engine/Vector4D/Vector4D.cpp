@@ -13,7 +13,7 @@ Vector4D::Vector4D() : x(0), y(0), z(0), w(0) {}
 
 Vector4D Vector4D::UnitVector() const {
     double magnitude = MagnitudeOfAVector();
-    if (magnitude == 0) {
+    if (magnitude < 1e-8) {
         throw std::runtime_error("Cannot calculate the unit vector of a zero vector.");
     }
     return { x / magnitude, y / magnitude, z / magnitude, 0 }; // Normalize all components

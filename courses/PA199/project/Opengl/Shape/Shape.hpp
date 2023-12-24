@@ -26,7 +26,8 @@ class Shape {
       
       std::vector<Vertex> vertices;
       std::vector<unsigned int> indices;
-
+      void CalculateNormals(std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices);
+      
    public:
       Shape(Vector4D _origin, Vector4D _colour){
          origin = _origin;

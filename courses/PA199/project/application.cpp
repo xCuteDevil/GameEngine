@@ -127,7 +127,7 @@ void Application::startGame() {
     shapes.push_back(ground);
 
     // Ball
-    model = Matrix4x4(1.0).Translate(1.5, 1.5, 1);
+    model = Matrix4x4(1.0).Translate(1.5, 0, 1);
     
 	Sphere ball = *new Sphere(Vector4D(0, 0, 0, 1), 0.2f, 16, 16, Vector4D(0, 0.5, 1, 1));
     
@@ -138,8 +138,8 @@ void Application::startGame() {
     auto toRadians = [](float degrees) { return degrees * 3.14159265358979323846f / 180.0f; };
 
     // Brick configuration
-    const int bricksPerStory = 12;
-    const int numberOfStories = 5;
+    const int bricksPerStory = 5;
+    const int numberOfStories = 1;
     const float brickHeight = 0.2f;
     const float brickWidth = 0.2f;
     const float radius = 1.5f;
@@ -150,7 +150,7 @@ void Application::startGame() {
     // Paddle configuration
     const int paddleCount = 3;
     const float paddleWidth = 0.2f;
-    const float paddleHeight = 0.25f;
+    const float paddleHeight = 0.2f;
     const float paddleInnerRadius = 2.5f;
     const int paddleDetail = 36;
     const Vector4D paddleColor(1, 0, 0, 0);

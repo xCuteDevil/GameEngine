@@ -125,8 +125,8 @@ std::pair<std::vector<Vertex>, std::vector<unsigned int>> Brick::GenerateMesh(
     float angleIncrement = brickAngle / detail;
 
     // Normals for top and bottom faces
-    Vector4D normalTop(0.0f, 0.0f, 1.0f, 0.0f);
-    Vector4D normalBottom(0.0f, 0.0f, -1.0f, 0.0f);
+    Vector4D normalTop(0.0f, -1.0f, 0.0f, 0.0f);
+    Vector4D normalBottom(0.0f, 1.0f, 0.0f, 0.0f);
 
     // Top and bottom vertices
     for (int i = 0; i <= detail; ++i) {
@@ -135,8 +135,8 @@ std::pair<std::vector<Vertex>, std::vector<unsigned int>> Brick::GenerateMesh(
         float sinA = sin(angle);
 
         // Calculate the normals for the curved surfaces
-        Vector4D normalOuter(cosA, sinA, 0.0f, 0.0f);  // Radially outward for the outer surface
-        Vector4D normalInner(-cosA, -sinA, 0.0f, 0.0f);  // Radially inward for the inner surface
+        Vector4D normalOuter(-cosA, 0.0f, -sinA, 0.0f);  // Radially outward for the outer surface
+        Vector4D normalInner(cosA, 0.0f, sinA, 0.0f); // Radially inward for the inner surface
 
         // Normalize the vectors
         normalOuter = normalOuter.UnitVector();
@@ -234,10 +234,19 @@ std::pair<std::vector<Vertex>, std::vector<unsigned int>> Brick::GenerateMesh(
             indices.push_back(innerTop2);
         }
     }
+	//CalculateNormals(vertices, indices);
 
     return { vertices, indices };
 }
 
+// GenerateMesh function creates a 3D mesh for a paddle-shaped object.
+// Parameters:
+// innerRadius: The inner radius of the paddle.
+// width: Width of the paddle from its inner to outer edge.
+// height: Height of the paddle.
+// detail: Number of segments used to create the paddle (higher detail means smoother paddle).
+// paddleAngle: The angular extent of the paddle in radians.
+// Returns a pair of vectors, one for vertices and one for indices, defining the paddle mesh.
 std::pair<std::vector<Vertex>, std::vector<unsigned int>> Paddle::GenerateMesh(
     float innerRadius, float width, float height, int detail, float paddleAngle) {
 
@@ -245,75 +254,153 @@ std::pair<std::vector<Vertex>, std::vector<unsigned int>> Paddle::GenerateMesh(
     std::vector<unsigned int> indices;
 
     float outerRadius = innerRadius + width;
-    float angleIncrement = paddleAngle / detail; // Increment based on detail
-
-    // Normals for top and bottom faces
-    Vector4D normalTop(0.0f, 1.0f, 0.0f);
-    Vector4D normalBottom(0.0f, -1.0f, 0.0f);
-
-    // Create vertices for the paddle
+    float angleIncrement = paddleAngle / detail;
+    
+	// Create side vertices for the paddle (radially inward and outward)
     for (int i = 0; i <= detail; ++i) {
         float angle = i * angleIncrement;
         float cosA = cos(angle);
         float sinA = sin(angle);
 
-        // Normals for outer and inner edge
-        Vector4D normalOuter(cosA, 0.0f, sinA); // Radially outward
-        normalOuter = normalOuter.UnitVector();
-        Vector4D normalInner(-cosA, 0.0f, -sinA); // Radially inward
-        normalInner = normalInner.UnitVector();
-        
-        // Outer edge vertices (top and bottom)
-        vertices.push_back({ outerRadius * cosA, height, outerRadius * sinA, (float)normalTop.x, (float)normalTop.y, (float)normalTop.z });
-        vertices.push_back({ outerRadius * cosA, 0.0f, outerRadius * sinA, (float)normalBottom.x, (float)normalBottom.y, (float)normalBottom.z });
-
-        // Inner edge vertices (top and bottom)
-        vertices.push_back({ innerRadius * cosA, height, innerRadius * sinA, (float)normalTop.x, (float)normalTop.y, (float)normalTop.z });
-        vertices.push_back({ innerRadius * cosA, 0.0f, innerRadius * sinA, (float)normalBottom.x, (float)normalBottom.y, (float)normalBottom.z });
+        // Add top and bottom vertices for both outer and inner radius
+        vertices.push_back({ outerRadius * cosA, height, outerRadius * sinA, 0, 0, 0 });
+        vertices.push_back({ innerRadius * cosA, height, innerRadius * sinA, 0, 0, 0 });
+        vertices.push_back({ outerRadius * cosA, 0.0f, outerRadius * sinA, 0, 0, 0 });
+        vertices.push_back({ innerRadius * cosA, 0.0f, innerRadius * sinA, 0, 0, 0 });
     }
 
-    // Generate indices for the paddle faces, excluding end caps
+    // Generate indices for the side faces
     for (int i = 0; i < detail; ++i) {
-        int baseIndex = i * 4;
+        int topIndex = i * 4;
+        int bottomIndex = topIndex + 2;
 
         // Outer face
-        indices.push_back(baseIndex);
-        indices.push_back(baseIndex + 4);
-        indices.push_back(baseIndex + 1);
+        indices.push_back(topIndex);
+        indices.push_back(topIndex + 4);
+        indices.push_back(bottomIndex);
 
-        indices.push_back(baseIndex + 1);
-        indices.push_back(baseIndex + 4);
-        indices.push_back(baseIndex + 5);
+        indices.push_back(bottomIndex);
+        indices.push_back(topIndex + 4);
+        indices.push_back(bottomIndex + 4);
 
         // Inner face
-        indices.push_back(baseIndex + 2);
-        indices.push_back(baseIndex + 3);
-        indices.push_back(baseIndex + 6);
+        indices.push_back(topIndex + 1);
+        indices.push_back(bottomIndex + 1);
+        indices.push_back(topIndex + 5);
 
-        indices.push_back(baseIndex + 3);
-        indices.push_back(baseIndex + 7);
-        indices.push_back(baseIndex + 6);
+        indices.push_back(bottomIndex + 1);
+        indices.push_back(bottomIndex + 5);
+        indices.push_back(topIndex + 5);
+    }
 
+    // Create vertices for the top and bottom faces of the paddle
+    for (int i = 0; i <= detail; ++i) {
+        float angle = i * angleIncrement;
+        float cosA = cos(angle);
+        float sinA = sin(angle);
+
+        // Top face vertices
+        vertices.push_back({ outerRadius * cosA, height, outerRadius * sinA, 0, 0, 0 });
+        vertices.push_back({ innerRadius * cosA, height, innerRadius * sinA, 0, 0, 0 });
+
+        // Bottom face vertices
+        vertices.push_back({ outerRadius * cosA, 0.0f, outerRadius * sinA, 0, 0, 0 });
+        vertices.push_back({ innerRadius * cosA, 0.0f, innerRadius * sinA, 0, 0, 0 });
+    }
+
+    // Generate indices for the top and bottom faces
+    int faceStartIndex = (detail + 1) * 4;
+    for (int i = 0; i < (detail); ++i) {
+        int topIndex = faceStartIndex + i * 4;
+        int bottomIndex = topIndex + 2;
+        
         // Top face
-        indices.push_back(baseIndex);
-        indices.push_back(baseIndex + 2);
-        indices.push_back(baseIndex + 6);
+        indices.push_back(topIndex);
+        indices.push_back(topIndex + 1);
+        indices.push_back(topIndex + 5);
 
-        indices.push_back(baseIndex);
-        indices.push_back(baseIndex + 6);
-        indices.push_back(baseIndex + 4);
+        indices.push_back(topIndex);
+        indices.push_back(topIndex + 5);
+        indices.push_back(topIndex + 4);
 
         // Bottom face
-        indices.push_back(baseIndex + 3);
-        indices.push_back(baseIndex + 1);
-        indices.push_back(baseIndex + 5);
+        indices.push_back(bottomIndex);
+        indices.push_back(bottomIndex + 1);
+        indices.push_back(bottomIndex + 5);
 
-        indices.push_back(baseIndex + 3);
-        indices.push_back(baseIndex + 5);
-        indices.push_back(baseIndex + 7);
+        indices.push_back(bottomIndex);
+        indices.push_back(bottomIndex + 5);
+        indices.push_back(bottomIndex + 4);
     }
+
+    // Side caps
+    float angle = 0;
+    float cosA = cos(angle);
+    float sinA = sin(angle);
+	int startIndex = vertices.size();
     
+    // Top outer and inner vertices
+    vertices.push_back({ outerRadius * cosA, height, outerRadius * sinA, 0, 0, 0 });
+    vertices.push_back({ innerRadius * cosA, height, innerRadius * sinA, 0, 0, 0 });
+
+    // Bottom outer and inner vertices
+    vertices.push_back({ outerRadius * cosA, 0.0f, outerRadius * sinA, 0, 0, 0 });
+    vertices.push_back({ innerRadius * cosA, 0.0f, innerRadius * sinA, 0, 0, 0 });
+    
+    indices.push_back(startIndex);
+    indices.push_back(startIndex + 2);
+    indices.push_back(startIndex + 1);
+
+    indices.push_back(startIndex + 1);
+    indices.push_back(startIndex + 2);
+    indices.push_back(startIndex + 3);
+
+    angle = detail * angleIncrement;
+    cosA = cos(angle);
+    sinA = sin(angle);
+    startIndex = vertices.size();
+
+    // Top outer and inner vertices
+    vertices.push_back({ outerRadius * cosA, height, outerRadius * sinA, 0, 0, 0 });
+    vertices.push_back({ innerRadius * cosA, height, innerRadius * sinA, 0, 0, 0 });
+
+    // Bottom outer and inner vertices
+    vertices.push_back({ outerRadius * cosA, 0.0f, outerRadius * sinA, 0, 0, 0 });
+    vertices.push_back({ innerRadius * cosA, 0.0f, innerRadius * sinA, 0, 0, 0 });
+
+    indices.push_back(startIndex);
+    indices.push_back(startIndex + 1);
+    indices.push_back(startIndex + 2);
+    
+
+    indices.push_back(startIndex + 1);
+    indices.push_back(startIndex + 3);
+    indices.push_back(startIndex + 2);
+    
+
+    CalculateNormals(vertices, indices);
+
     return { vertices, indices };
+}
+
+
+void Shape::CalculateNormals(std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices) {
+    
+	// Compute the normal for each face
+    for (size_t i = 0; i < indices.size(); i += 3) {
+        Vertex& v0 = vertices[indices[i]];
+        Vertex& v1 = vertices[indices[i + 1]];
+        Vertex& v2 = vertices[indices[i + 2]];
+
+        Vector4D vec0 = { v1.x - v0.x, v1.y - v0.y, v1.z - v0.z };
+        Vector4D vec1 = { v2.x - v0.x, v2.y - v0.y, v2.z - v0.z };
+
+        Vector4D normal = vec0.CrossProduct(vec1).UnitVector();
+        
+        v0.nx = normal.x; v0.ny = normal.y; v0.nz = normal.z;
+        v1.nx = normal.x; v1.ny = normal.y; v1.nz = normal.z;
+        v2.nx = normal.x; v2.ny = normal.y; v2.nz = normal.z;
+    }
 }
 
 void Shape::SetTexture(unsigned int texture) {
