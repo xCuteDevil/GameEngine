@@ -22,7 +22,29 @@ class Application : public IApplication {
     // ----------------------------------------------------------------------------
 private:
     bool orthographicProj = false;
-	
+    bool isBallMoving = false;
+    bool left = false, right = false;
+
+    // Brick configuration
+    const int bricksPerStory = 12;
+    const int numberOfStories = 3;
+    const float brickHeight = 0.2f;
+    const float brickWidth = 0.2f;
+    const float radius = 1.5f;
+    const int brickDetail = 5;
+    const float brickInnerRadius = 0.4f;
+    
+
+    // Paddle configuration
+    const int paddleCount = 3;
+    const float paddleWidth = 0.2f;
+    const float paddleHeight = 0.2f;
+    const float paddleInnerRadius = 2.5f;
+    const int paddleDetail = 36;
+    
+	// Ground configuration
+	const float groundDiameter = 3.0f;
+    
     
     GLuint vertex_shader;
     GLuint fragment_shader;
@@ -32,9 +54,10 @@ private:
     GLuint index_buffer;
     GLuint texture;
     Camera cam;
-    bool left = false, right = false;
-    bool isBallMoving = false;
-    float ballRadius = 0.2f;
+    
+    
+    float ballRadius = 0.12f;
+    float ballStartPosCoefOffset = 0.8f;
     
     // ----------------------------------------------------------------------------
     // Variables (Geometry)
@@ -76,7 +99,14 @@ public:
 
     /** @copydoc IApplication::on_key_pressed */
     void on_key_pressed(int key, int scancode, int action, int mods) override;
+    
     void startGame();
+    
+    void BallPhysicsUpdate(float delta, Shape& shape);
+
+    void BallOutsideGameArea(Shape& shape);
+
+    void SetDirection(Shape& shape, Vector4D newDirection, float speed);
 
     std::vector<Vector4D> colors = {
         Vector4D(1, 1, 0, 1), // Yellow

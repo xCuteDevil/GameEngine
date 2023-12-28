@@ -110,7 +110,7 @@ void Application::update(float delta) {
     
     // Movement left
     if (left) {
-        for (int i = 0; i < paddles.size(); ++i) {
+        for (int i = 0; i < paddles.size(  ); ++i) {
             Shape* p = paddles[i];
 			Matrix4x4 model = p->GetModelMatrix();
             model = model * Matrix4x4(1.0).Rotate(toRadians(90) * delta * 0.001, Vector4D(0, 1, 0, 0));
@@ -133,10 +133,48 @@ void Application::update(float delta) {
     {
         Shape* p = paddles[0];
         Vector4D paddlePos = p->GetPosition();
-		paddlePos = paddlePos - paddlePos.UnitVector() * ballRadius;
+		paddlePos = paddlePos - paddlePos.UnitVector() * ballRadius * ballStartPosCoefOffset;
         shapes[1].SetModelMatrix(Matrix4x4(1.0).Translate(paddlePos.x, paddlePos.y, paddlePos.z));
     }
+    else
+    {
+        Vector4D dir = Vector4D(-shapes[1].GetPosition().x, 0, -shapes[1].GetPosition().z);
+        SetDirection(shapes[1], dir, 0.00000001f);
+        BallPhysicsUpdate(delta, shapes[1]);
+
+        // Reset the ball if it leaves the ground object
+        BallOutsideGameArea(shapes[1]);
+    }
     
+}
+
+void Application::BallOutsideGameArea(Shape& ball) {
+    Vector4D ballPos = ball.GetPosition();
+
+    if (std::abs(ballPos.x) > groundDiameter || std::abs(ballPos.y) > groundDiameter)
+    {
+        isBallMoving = false;
+    }
+}
+
+void Application::BallPhysicsUpdate(float delta, Shape& shape)
+{   
+    // Update velocity based on force
+    shape.velocity = shape.velocity * 0.001f + (shape.force * delta * 0.001f);
+    
+    // Update position
+    Vector4D newPosition = shape.GetPosition() + (shape.velocity * delta);
+	shape.SetPosition(newPosition);
+
+    // Update model matrix
+    Matrix4x4 model = shape.GetModelMatrix();
+    model = Matrix4x4(1.0f).Translate(newPosition.x, newPosition.y, newPosition.z);
+    shape.SetModelMatrix(model);
+}
+
+void Application::SetDirection(Shape& shape, Vector4D newDirection, float speed) {
+    Vector4D unitDirection = newDirection.UnitVector();
+    shape.velocity = unitDirection;
 }
 
 void Application::startGame() {
@@ -153,16 +191,16 @@ void Application::startGame() {
     model = Matrix4x4(1.0);
     model = model.Rotate(-M_PI/2, Vector4D(1, 0, 0, 0));
     
-	Circle ground = *new Circle(Vector4D(0, 0, 0, 1), 3.0f, 360, Vector4D(0, 0, 1, 1));
+	Circle ground = *new Circle(Vector4D(0, 0, 0, 1), groundDiameter, 360, Vector4D(0, 0, 1, 1));
 	ground.SetTexture(load_texture(lecture_folder_path / "data" / "textures" / "ground.png"));
     
     ground.SetModelMatrix(model);
     shapes.push_back(ground);
 
     // Ball
-    model = Matrix4x4(1.0).Translate(1, 0, 1) * Matrix4x4(1.0).Scale(0.75, 0.75, 0.75);
+    model = Matrix4x4(1.0).Translate(1, 0, 1);// *Matrix4x4(1.0).Scale(0.25, 0.25, 0.25);
     
-	Sphere b = *new Sphere(Vector4D(0, 0, 0, 1), ballRadius, 16, 16, Vector4D(0, 0.5, 1, 1));
+	Sphere b = *new Sphere(Vector4D(0, 0, 0, 1), ballRadius, 16, 16, Vector4D(0.5, 0.5, 0.5, 1));
     
     b.SetModelMatrix(model);
 	
@@ -171,25 +209,7 @@ void Application::startGame() {
     
     // Conversion helper
     auto toRadians = [](float degrees) { return degrees * 3.14159265358979323846f / 180.0f; };
-
-    // Brick configuration
-    const int bricksPerStory = 12;
-    const int numberOfStories = 3;
-    const float brickHeight = 0.2f;
-    const float brickWidth = 0.2f;
-    const float radius = 1.5f;
-    const int brickDetail = 5;
-    const float brickInnerRadius = 0.4f;
-    const Vector4D brickColor(0, 0.5, 1, 1);
-
-    // Paddle configuration
-    const int paddleCount = 3;
-    const float paddleWidth = 0.2f;
-    const float paddleHeight = 0.2f;
-    const float paddleInnerRadius = 2.5f;
-    const int paddleDetail = 36;
-    const Vector4D paddleColor(1, 0, 0, 0);
-
+    
     // Create bricks with alternating colors
     for (int story = 0; story < numberOfStories; ++story) {
         float yOffset = story * brickHeight;  // Vertical offset for each story along the Y-axis
@@ -231,7 +251,7 @@ void Application::startGame() {
         float z = paddleInnerRadius * sin(angleRadians);
 
         // Create paddle and position it on the XZ plane at the calculated position
-        Paddle paddle(Vector4D(x, 0.0f, z, 1), paddleInnerRadius, paddleWidth, paddleHeight, toRadians(60.0f), paddleDetail, paddleColor);
+        Paddle paddle(Vector4D(x, 0.0f, z, 1), paddleInnerRadius, paddleWidth, paddleHeight, toRadians(60.0f), paddleDetail, Vector4D(1.0f, 0.0f, 0.0f, 0.0f));
 
         // Rotate paddle around the global Y-axis to face outward from the center
         Matrix4x4 model = Matrix4x4::Rotate(angleRadians, Vector4D(0, 1, 0, 0));
@@ -390,6 +410,9 @@ void Application::on_key_pressed(int key, int scancode, int action, int mods) {
             case GLFW_KEY_RIGHT:
                 right = true;
                 break;
+			case GLFW_KEY_SPACE:
+				isBallMoving = true;
+				break;
         }
     }
 }

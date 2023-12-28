@@ -29,7 +29,12 @@ class Shape {
       void CalculateNormals(std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices);
       
    public:
-
+	  Vector4D velocity = Vector4D(0, 0, 0);
+	  Vector4D force = Vector4D(1.0f, 0.0f, 1.0f);
+	  Vector4D position = Vector4D(0.0f, 0.0f, 0.0f);
+      
+	  float mass = 10.0f;
+       
       Shape(Vector4D _origin, Vector4D _colour){
          origin = _origin;
 		 colour = _colour;
@@ -56,6 +61,7 @@ class Shape {
       void GenerateAndBindBuffers();
       void ConfigureVertexAttributes();
       void SetArrays();
+	  void SetPosition(Vector4D position);
 };
 
 class Circle : public Shape {

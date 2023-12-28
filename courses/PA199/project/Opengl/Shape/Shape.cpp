@@ -399,3 +399,8 @@ void Shape::SetArrays() {
     GenerateAndBindBuffers();
     ConfigureVertexAttributes();
 }
+
+void Shape::SetPosition(Vector4D p)
+{
+    position = p;
+}
