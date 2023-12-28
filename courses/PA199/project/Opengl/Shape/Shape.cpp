@@ -2,23 +2,6 @@
 
 # define M_PI           3.14159265358979323846  /* pi */
 
-/*std::pair<std::vector<Vertex>, std::vector<unsigned int>> Square::GenerateMesh()
-{
-
-        {   -(float)side/2, -(float)side / 2, 0.0f,       0.0f, 0.0f},
-        {  (float)side / 2, -(float)side / 2, 0.0f,       1.0f, 0.0f },
-        {  (float)side / 2,  (float)side / 2, 0.0f,       1.0f, 1.0f },
-        { -(float)side / 2,  (float)side / 2, 0.0f,       0.0f, 1.0f },
-    };
-    
-    std::vector<unsigned int> indices{
-        0, 1, 2, // First triangle
-        2, 3, 0  // Second triangle
-    };
-
-    return { vertices, indices };
-}*/
-
 std::pair<std::vector<Vertex>, std::vector<unsigned int>> Circle::GenerateMesh()
 {
     std::vector<Vertex> vertices;
@@ -272,6 +255,18 @@ std::pair<std::vector<Vertex>, std::vector<unsigned int>> Paddle::GenerateMesh(
     return { vertices, indices };
 }
 
+Vector4D calculateLocalCenter(const std::vector<Vertex>& vertices) {
+    Vector4D center(0, 0, 0, 1);
+    for (const auto& vertex : vertices) {
+        center.x += vertex.x;
+        center.y += vertex.y;
+        center.z += vertex.z;
+    }
+    center.x /= vertices.size();
+    center.y /= vertices.size();
+    center.z /= vertices.size();
+    return center;
+}
 
 void Shape::CalculateNormals(std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices) {
     
@@ -307,7 +302,7 @@ void Shape::SetIndexBuffer(unsigned int _index_buffer)
 }
 
 Matrix4x4 Shape::GetModelMatrix() {
-	return shapeMatrix;
+	return this->shapeMatrix;
 }
 
 const std::vector<unsigned int>& Shape::GetIndices() const
@@ -348,6 +343,14 @@ Vector4D Shape::GetColour() const
 Vector4D Shape::GetOrigin() const
 {
 	return origin;
+}
+
+Vector4D Shape::GetPosition() const
+{
+    Vector4D localCenter = calculateLocalCenter(vertices);
+    auto m = this->shapeMatrix * localCenter;
+    auto n = m.ToArray();
+	return Vector4D(n[0], n[1], n[2], 1.0f);
 }
 
 void Shape::GenerateAndBindBuffers() {

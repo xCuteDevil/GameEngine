@@ -21,12 +21,8 @@ class Application : public IApplication {
     // Variables
     // ----------------------------------------------------------------------------
 private:
-    float red = 0.0f;
-    float green = 0.0f;
-    float blue = 0.0f;
     bool orthographicProj = false;
-    
-	std::vector<Shape> shapes;
+	
     
     GLuint vertex_shader;
     GLuint fragment_shader;
@@ -36,10 +32,16 @@ private:
     GLuint index_buffer;
     GLuint texture;
     Camera cam;
+    bool left = false, right = false;
+    bool isBallMoving = false;
+    float ballRadius = 0.2f;
+    
     // ----------------------------------------------------------------------------
     // Variables (Geometry)
     // ----------------------------------------------------------------------------
-    //Sphere sphere;
+    std::vector<Shape> shapes;
+    std::vector<Shape*> paddles;
+    Shape* ball = nullptr;
     
     // ----------------------------------------------------------------------------
     // Constructors & Destructors
@@ -50,7 +52,6 @@ public:
     /** Destroys the {@link Application} and releases the allocated resources. */
     virtual ~Application();
     
-
     // ----------------------------------------------------------------------------
     // Methods
     // ----------------------------------------------------------------------------
@@ -75,7 +76,6 @@ public:
 
     /** @copydoc IApplication::on_key_pressed */
     void on_key_pressed(int key, int scancode, int action, int mods) override;
-    void debug(std::string message);
     void startGame();
 
     std::vector<Vector4D> colors = {
@@ -87,6 +87,4 @@ public:
     };
     
 };
-std::vector<GLuint> CircleIndexing(int numberOfVertices);
-std::vector<GLuint> SphereIndexing(Sphere s);
 

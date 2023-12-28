@@ -105,11 +105,44 @@ Application::~Application()
 // Methods
 // ----------------------------------------------------------------------------
 
-void Application::update(float delta) {}
+void Application::update(float delta) {
+    auto toRadians = [](float degrees) { return degrees * 3.14159265358979323846f / 180.0f; };
+    
+    // Movement left
+    if (left) {
+        for (int i = 0; i < paddles.size(); ++i) {
+            Shape* p = paddles[i];
+			Matrix4x4 model = p->GetModelMatrix();
+            model = model * Matrix4x4(1.0).Rotate(toRadians(90) * delta * 0.001, Vector4D(0, 1, 0, 0));
+			p->SetModelMatrix(model);
+        }
+    }
+
+    // Movement right
+    else if (right) {
+        for (int i = 0; i < paddles.size(); ++i) {
+            Shape* p = paddles[i];
+            Matrix4x4 model = p->GetModelMatrix(  );
+            model = model * Matrix4x4(1.0).Rotate(toRadians ( - 90) * delta * 0.001, Vector4D(0, 1, 0, 0));
+            p->SetModelMatrix(model);
+        }
+    }
+
+    // Waiting to cast the ball
+    if (!isBallMoving)
+    {
+        Shape* p = paddles[0];
+        Vector4D paddlePos = p->GetPosition();
+		paddlePos = paddlePos - paddlePos.UnitVector() * ballRadius;
+        shapes[1].SetModelMatrix(Matrix4x4(1.0).Translate(paddlePos.x, paddlePos.y, paddlePos.z));
+    }
+    
+}
 
 void Application::startGame() {
-    orthographicProj = true;
-    cam.setprojectionMatrixToOrthographic(-static_cast<double>(width) / height, static_cast<double>(width) / height, -1.0f, 1.0f, 0.1f, 100.0f);
+    orthographicProj = false;
+    float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
+    cam.setprojectionMatrixToPerspective(45.0f, aspectRatio, 0.1f, 100.0f);
 
     shapes.clear();
     Matrix4x4 model = Matrix4x4(1.0f);
@@ -129,16 +162,18 @@ void Application::startGame() {
     // Ball
     model = Matrix4x4(1.0).Translate(1, 0, 1) * Matrix4x4(1.0).Scale(0.75, 0.75, 0.75);
     
-	Sphere ball = *new Sphere(Vector4D(0, 0, 0, 1), 0.2f, 16, 16, Vector4D(0, 0.5, 1, 1));
+	Sphere b = *new Sphere(Vector4D(0, 0, 0, 1), ballRadius, 16, 16, Vector4D(0, 0.5, 1, 1));
     
-    ball.SetModelMatrix(model);
-    shapes.push_back(ball);
+    b.SetModelMatrix(model);
+	
+    shapes.push_back(b);
+    ball = &shapes.back();
     
     // Conversion helper
     auto toRadians = [](float degrees) { return degrees * 3.14159265358979323846f / 180.0f; };
 
     // Brick configuration
-    const int bricksPerStory = 7;
+    const int bricksPerStory = 12;
     const int numberOfStories = 3;
     const float brickHeight = 0.2f;
     const float brickWidth = 0.2f;
@@ -204,14 +239,15 @@ void Application::startGame() {
         // Apply the model matrix to the paddle
         paddle.SetModelMatrix(model);
 
-        // Add the paddle to the shapes vector
+        // Add the paddle to the shapes and paddles vector
         shapes.push_back(paddle);
+        paddles.push_back(&shapes.back());
     }
 }
 
 void Application::render() {
     // Sets the clear color.
-    glClearColor(red, green, blue, 1.0f);
+    glClearColor(0, 0, 0, 1.0f);
     // Clears the window using the above color.
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -249,12 +285,9 @@ void Application::render() {
     
     if (orthographicProj) {
 		vw = vw * vw.Translate(-cameraPosition.x, -cameraPosition.y, -cameraPosition.z);
-        //vw = vw.Rotate(M_PI/2, Vector4D(0, 1, 0, 0));
-        //vw = vw.Rotate(-M_PI, Vector4D(0, 1, 0, 0));
     }
     else {
         vw = vw * vw.Translate(-cameraPosition.x, -cameraPosition.y, -cameraPosition.z);
-        //vw = vw.Rotate(-M_PI, Vector4D(1, 0, 0, 0));
     }
     
     float* viewMatrix = vw.ToArray();
@@ -324,30 +357,24 @@ void Application::on_mouse_move(double x, double y) {}
 void Application::on_mouse_button(int button, int action, int mods) {}
 
 void Application::on_key_pressed(int key, int scancode, int action, int mods) {
-    if (action == GLFW_PRESS) {
-        red = 0;
-        green = 0;
-        blue = 0;
-
-        float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
-        float scale = height / 256.0f;
+    float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
+    float scale = height / 256.0f;
         
-        //Camera cam(45.0f, 1.0f, 0.1f, 10.0f);
+    // KEY REALEASE
+    if (action == GLFW_RELEASE) {
         switch (key) {
-            case GLFW_KEY_R: {
-                red = 0;
-                green = 0;
-                blue = 0;
-                break;
-            }
-            case GLFW_KEY_G: {
-                green = 1;
-                break;
-            }
-            case GLFW_KEY_B: {
-                blue = 1;
-                break;
-            }
+        case GLFW_KEY_LEFT:
+            left = false;
+            break;
+        case GLFW_KEY_RIGHT:
+            right = false;
+            break;
+        }
+    }
+    
+    // KEY PRESS
+    if (action == GLFW_PRESS) {
+        switch (key) {
             case GLFW_KEY_2: {
                 orthographicProj = true;
                 cam.setprojectionMatrixToOrthographic(-scale, scale, -scale * aspectRatio, scale * aspectRatio, -10.0f, 10.0f);
@@ -357,76 +384,12 @@ void Application::on_key_pressed(int key, int scancode, int action, int mods) {
                 orthographicProj = false;
                 cam.setprojectionMatrixToPerspective(45.0f, aspectRatio, 0.1f, 100.0f);
                 break;
-            }
-    }
-}
-
-/* The function write given string into a .txt file for debugging purposes.
- * Destination 'out\build\x64 - Debug\courses\PA199\project'
- */
-void Application::debug(std::string message) {
-    std::ofstream myfile;
-    myfile.open("LAUS.txt", std::ios::out | std::ios::app | std::ios::binary);
-
-    myfile << message + "\n";
-    myfile.close();
-}
-
-/* The function returns 'vector<GLuint>', which contains circle vertex indexing.
- * The sequence is (0,x,x+1), where x goes from 1 to 'numberOfVertices'
- */
-std::vector<GLuint> CircleIndexing(int numberOfVertices)
-{
-    std::vector<GLuint> indices;
-
-    for (GLuint i = 1; i < numberOfVertices + 1; i++) {
-        
-        indices.push_back(0U);
-        indices.push_back(i);
-        indices.push_back(i + 1);
-    }
-    return indices;
-}
-
-std::vector<GLuint> SphereIndexing(Sphere s)
-{
-    std::vector<GLuint> indices;
-    std::vector<int> lineIndices;
-    int k1, k2;
-    for (int i = 0; i < s.stackCount; ++i)
-    {
-        k1 = i * (s.sectorCount + 1);     // beginning of current stack
-        k2 = k1 + s.sectorCount + 1;      // beginning of next stack
-
-        for (int j = 0; j < s.sectorCount; ++j, ++k1, ++k2)
-        {
-            // 2 triangles per sector excluding first and last stacks
-            // k1 => k2 => k1+1
-            if (i != 0)
-            {
-                indices.push_back(k1);
-                indices.push_back(k2);
-                indices.push_back(k1 + 1);
-            }
-
-            // k1+1 => k2 => k2+1
-            if (i != (s.stackCount - 1))
-            {
-                indices.push_back(k1 + 1);
-                indices.push_back(k2);
-                indices.push_back(k2 + 1);
-            }
-
-            // store indices for lines
-            // vertical lines for all stacks, k1 => k2
-            lineIndices.push_back(k1);
-            lineIndices.push_back(k2);
-            if (i != 0)  // horizontal lines except 1st stack, k1 => k+1
-            {
-                lineIndices.push_back(k1);
-                lineIndices.push_back(k1 + 1);
-            }
+            case GLFW_KEY_LEFT:
+                left = true;
+                break;
+            case GLFW_KEY_RIGHT:
+                right = true;
+                break;
         }
     }
-    return indices;
 }

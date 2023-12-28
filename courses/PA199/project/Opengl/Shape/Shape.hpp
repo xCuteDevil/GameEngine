@@ -29,11 +29,12 @@ class Shape {
       void CalculateNormals(std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices);
       
    public:
+
       Shape(Vector4D _origin, Vector4D _colour){
          origin = _origin;
 		 colour = _colour;
       }
-      
+      virtual ~Shape() {}  // Virtual destructor
       std::vector<Vertex> GenerateMesh();
 
       // Getters
@@ -46,6 +47,7 @@ class Shape {
       unsigned int GetTexture() const;
 	  Vector4D GetColour() const;
       Vector4D GetOrigin() const;
+      Vector4D GetPosition() const;
       
       // Setters
       void SetTexture(unsigned int texture);
