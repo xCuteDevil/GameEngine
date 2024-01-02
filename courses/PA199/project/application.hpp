@@ -33,7 +33,7 @@ private:
     const int brickDetail = 5;
     const float brickInnerRadius = 1.7f;
     const float brickOuterRadius = brickInnerRadius + brickWidth;
-    
+
 
     // Paddle configuration
     const int paddleCount = 3;
@@ -42,13 +42,13 @@ private:
     const float paddleInnerRadius = 11.0f;
     float paddleOuterRadius = paddleInnerRadius + paddleWidth;
     const int paddleDetail = 36;
-    
-	// Ground configuration
-	const float groundDiameter = 28.0f;
-    
+
+    // Ground configuration
+    const float groundDiameter = 28.0f;
+
     bool collisionDetected = false;
     double prevRad = 0.0f;
-    
+
     GLuint vertex_shader;
     GLuint fragment_shader;
     GLuint shader_program;
@@ -57,23 +57,23 @@ private:
     GLuint index_buffer;
     GLuint texture;
     Camera cam;
-    
+
     bool isBallInGame = false;
     const float ballRadius = 0.4f;
     const float ballStartPosCoefOffset = 1.0f;
     const int ballShapesVectorIndex = numberOfStories * bricksPerStory + 1;
     float ballSpeed = 0.01f;
-    
-    
-    
+
+
+
     // ----------------------------------------------------------------------------
     // Variables (Geometry)
     // ----------------------------------------------------------------------------
     std::vector<Shape> shapes;
     std::vector<Shape*> paddles;
     Shape* ball = nullptr;
-	std::vector<Shape*> groundLevelBricks;
-    
+    std::vector<Shape*> groundLevelBricks;
+
     // ----------------------------------------------------------------------------
     // Constructors & Destructors
     // ----------------------------------------------------------------------------
@@ -82,7 +82,7 @@ public:
 
     /** Destroys the {@link Application} and releases the allocated resources. */
     virtual ~Application();
-    
+
     // ----------------------------------------------------------------------------
     // Methods
     // ----------------------------------------------------------------------------
@@ -107,23 +107,28 @@ public:
 
     /** @copydoc IApplication::on_key_pressed */
     void on_key_pressed(int key, int scancode, int action, int mods) override;
-    
+
     void startGame();
-    
+
     void BallPhysicsUpdate(float delta, Shape& shape);
 
     void BallCollisionDetection(Shape& shape, Vector4D ballPos);
 
     void CollisionWithBricks(Shape& ball);
+    bool ProcessBrickCollision(Shape& ball, Shape* brick, float ballAngle, float distanceFromCenter);
+    Vector4D CalculateCollisionNormal(const Vector4D& ballPosition, const Vector4D& paddlePosition);
+    Vector4D Reflect(const Vector4D& direction, const Vector4D& normal);
+    void ReflectBall(Shape& ball, const Vector4D& normal, float speed);
 
     void CollisionWithPaddles(Shape& ball);
     void ProcessPaddleCollision(Shape& ball, Shape* paddle, float ballAngle, float distanceFromCenter);
-    
+
     Vector4D GetTransformedVertex(Shape* shape, const Vertex& vertex);
     bool IsBallWithinObstacleRange(float ballAngle, float obstacleStartAngle, float obstacleEndAngle);
     void SetDirection(Shape& shape, Vector4D newDirection, float speed);
 
     void NormalizeCollisionAngles(float& ballAngle, float& obstacleStartAngle, float& obstacleEndAngle);
+
 
     std::vector<Vector4D> colors = {
         Vector4D(1, 1, 0, 1), // Yellow
@@ -132,6 +137,6 @@ public:
         Vector4D(1, 0, 0, 1), // Red
         Vector4D(0, 0, 0, 1)  // Black
     };
-    
+
 };
 

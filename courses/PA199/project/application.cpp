@@ -156,6 +156,65 @@ void Application::update(float delta) {
     }
 }
 
+bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAngle, float distanceFromCenter)
+{
+    Vector4D brickPos = brick->CalculatePosition();
+    PolarCoords brickPolarCoords = PolarCoords::Cartesian2PC(brickPos.x, brickPos.z);
+
+    float brickAngle = brickPolarCoords.GetAngle();
+    std::vector<Vertex> verticesVector = brick->GetVertices();
+
+    Vector4D startVertex = GetTransformedVertex(brick, verticesVector.front());
+    Vector4D endVertex = GetTransformedVertex(brick, verticesVector.back());
+
+    PolarCoords startPC = PolarCoords::Cartesian2PC(startVertex.x, startVertex.z);
+    PolarCoords endPC = PolarCoords::Cartesian2PC(endVertex.x, endVertex.z);
+
+    float brickStartAngle = startPC.GetAngle();
+    float brickEndAngle = endPC.GetAngle();
+
+    NormalizeCollisionAngles(ballAngle, brickStartAngle, brickEndAngle);
+
+    Vector4D ballPosition = ball.position;
+    Vector4D ballDirection = ball.velocity.UnitVector();
+    
+    // Brick front/back collision
+    if (IsBallWithinObstacleRange(ballAngle, brickStartAngle, brickEndAngle) && !brick->IsColumnDestroyed())
+    {
+        Vector4D collisionNormal = CalculateCollisionNormal(ballPosition, Vector4D(brickPos.x, ballPosition.y, brickPos.z));
+        ReflectBall(ball, collisionNormal, ballSpeed);
+        brick->DestroyBrick();
+        return true;
+    }
+    return false;
+}
+
+Vector4D Application::CalculateCollisionNormal(const Vector4D& ballPosition, const Vector4D& brickPosition)
+{
+    Vector4D normal = ballPosition.UnitVector();
+    PolarCoords ballPolarCoords = PolarCoords::Cartesian2PC(ballPosition.x, ballPosition.z);
+    PolarCoords brickPolarCoords = PolarCoords::Cartesian2PC(brickPosition.x, brickPosition.z);
+
+    if (ballPolarCoords.GetRadius() < brickPolarCoords.GetRadius())
+    {
+        normal = normal.OppositeVector();
+    }
+    return normal;
+}
+
+void Application::ReflectBall(Shape& ball, const Vector4D& normal, float speed)
+{
+    Vector4D direction = ball.velocity.UnitVector();
+    Vector4D newDirection = Reflect(direction, normal);
+    newDirection.y = 0;
+    SetDirection(ball, newDirection, ballSpeed);
+}
+
+Vector4D Application::Reflect(const Vector4D& direction, const Vector4D& normal)
+{
+    return direction - normal * 2 * (direction.DotProduct(normal));
+}
+
 void Application::BallCollisionDetection(Shape& ball, Vector4D ballPos) {
    
 	PolarCoords ballPolarCoords = PolarCoords::Cartesian2PC(ballPos.x, ballPos.z);
@@ -171,7 +230,7 @@ void Application::BallCollisionDetection(Shape& ball, Vector4D ballPos) {
     // Potential Collision with bricks
     else if (ballRadiusMinus <= (brickOuterRadius+1.5f) && ballRadiusPlus >= (brickInnerRadius+1.5f))
     {   
-        SetDirection(ball, Vector4D(ballPos.x, 0, ballPos.z), ballSpeed);
+        //SetDirection(ball, Vector4D(ballPos.x, 0, ballPos.z), ballSpeed);
         
         CollisionWithBricks(ball);
         
@@ -185,10 +244,10 @@ void Application::BallCollisionDetection(Shape& ball, Vector4D ballPos) {
 
 void Application::NormalizeCollisionAngles(float& ballAngle, float& paddleStartAngle, float& paddleEndAngle) {
     if (paddleStartAngle > paddleEndAngle) {
-        if (ballAngle > paddleStartAngle || ballAngle < paddleEndAngle) {
+        paddleEndAngle += 2 * M_PI;
+        if (ballAngle < paddleStartAngle/* || ballAngle > paddleEndAngle*/) {
             ballAngle += 2 * M_PI;
         }
-        paddleEndAngle += 2 * M_PI;
     }
 }
 
@@ -241,60 +300,15 @@ void Application::CollisionWithBricks(Shape& ball)
 {
     Vector4D ballPos = ball.position;
     float ballDistanceFromCenter = sqrt(ballPos.x * ballPos.x + ballPos.z * ballPos.z);
+	PolarCoords ballPolarCoords = PolarCoords::Cartesian2PC(ballPos.x, ballPos.z);
 
-
-    Vector4D startVertex;
-    Vector4D endVertex;
-    float brickStartAngle;
-    float brickEndAngle;
-    float ballAngle;
-    float startRadius;
-    float endRadius;
     for (int b = 0; b < groundLevelBricks.size(); b++)
     {
-        if (groundLevelBricks[b]->IsDestroyed())
+        if (!groundLevelBricks[b]->IsColumnDestroyed())
         {
-            break;
-        }
-
-        std::vector<Vertex> verticesVector = groundLevelBricks[b]->GetVertices();
-
-        int lastVertexIndex = verticesVector.size() - 1;
-        startVertex = groundLevelBricks[b]->GetModelMatrix() * Vector4D(verticesVector[0].x, verticesVector[0].y, verticesVector[0].z);
-        endVertex = groundLevelBricks[b]->GetModelMatrix() * Vector4D(verticesVector[lastVertexIndex].x, verticesVector[lastVertexIndex].y, verticesVector[lastVertexIndex].z);
-        
-        PolarCoords startPC = PolarCoords::Cartesian2PC(startVertex.x, startVertex.z);
-        PolarCoords endPC = PolarCoords::Cartesian2PC(endVertex.x, endVertex.z);
-        PolarCoords ballPC = PolarCoords::Cartesian2PC(ballPos.x, ballPos.z);
-
-        // Moving away from the center
-        if (prevRad < ballPC.GetRadius())
-        {
-            PolarCoords ballPC = PolarCoords::Cartesian2PC(-ballPos.x, -ballPos.z);
-        }
-
-        brickStartAngle = startPC.GetAngle();
-        brickEndAngle = endPC.GetAngle();
-        ballAngle = ballPC.GetAngle();
-
-        startRadius = startPC.GetRadius();
-        endRadius = endPC.GetRadius();
-
-		NormalizeCollisionAngles(ballAngle, brickStartAngle, brickEndAngle);
-
-        prevRad = ballPC.GetRadius();
-
-        // FRONT or BACK Collision
-        if ( (brickStartAngle <= ballAngle) && (ballAngle <= brickEndAngle))
-        {
-            if(groundLevelBricks[b] != nullptr)
-            {
-                groundLevelBricks[b]->DestroyBrick();
-            }
-            
-            if (groundLevelBricks[b]->next != nullptr)
-            {
-                groundLevelBricks[b] = groundLevelBricks[b]->next;
+            bool collided = ProcessBrickCollision(ball, groundLevelBricks[b], ballPolarCoords.GetAngle(), ballDistanceFromCenter);
+            if (collided) {
+                return;
             }
         }
     }

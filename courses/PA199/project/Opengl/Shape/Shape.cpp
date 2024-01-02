@@ -360,21 +360,42 @@ bool Shape::IsDestroyed() const
 	return destroyed;
 }
 
-void Shape::DestroyBrick() {
-	destroyed = true;
-    if (next != nullptr)
+bool Shape::IsColumnDestroyed()
+{
+    while (next != nullptr)
     {
-        next->RecursiveBrickFall(GetModelMatrix());
+        if (!next->destroyed) {
+            return false;
+        }
+        next = next->next;
     }
+    return true;
 }
 
-void Shape::RecursiveBrickFall(Matrix4x4 newModelMatrix)
+void Shape::DestroyBrick() { 
+    RecursiveBrickFall(GetModelMatrix(), true);
+}
+
+void Shape::RecursiveBrickFall(Matrix4x4 prevBrickModelMatrix, bool destroyThisBrick)
 {
-	if (next != nullptr) {
-		next->RecursiveBrickFall(GetModelMatrix());
-	}
-    
-    SetModelMatrix(newModelMatrix);
+    // If we are to destroy this brick and it's not already destroyed, do so.
+    if (destroyThisBrick && !destroyed)
+    {
+        destroyed = true;
+        // The current brick has been destroyed, so we don't want to destroy the next one.
+        destroyThisBrick = false;
+    }
+
+    // If there's a next brick, recursively adjust its position and destroy it if needed.
+    if (next != nullptr) {
+        next->RecursiveBrickFall(GetModelMatrix(), destroyThisBrick);
+    }
+
+    // If this brick is not destroyed, move it to the position of the brick above it.
+    // If it is destroyed, it's already at the correct position and shouldn't fall.
+    if (!destroyed) {
+        SetModelMatrix(prevBrickModelMatrix);
+    }
 }
 
 

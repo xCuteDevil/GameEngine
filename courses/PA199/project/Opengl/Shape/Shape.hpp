@@ -55,6 +55,7 @@ class Shape {
       Vector4D GetOrigin() const;
       Vector4D CalculatePosition();
 	  bool IsDestroyed() const;
+      bool IsColumnDestroyed();
       
       // Setters
       void SetTexture(unsigned int texture);
@@ -66,7 +67,7 @@ class Shape {
 	  void SetPosition(Vector4D position);
       
       void DestroyBrick();
-	  void RecursiveBrickFall(Matrix4x4 newModelMatrix);
+	  void RecursiveBrickFall(Matrix4x4 prevBrickModelMatrix, bool alreadyDestroyedOne);
 };
 
 class Circle : public Shape {
