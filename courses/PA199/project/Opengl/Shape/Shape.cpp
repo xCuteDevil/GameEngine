@@ -94,6 +94,7 @@ std::pair<std::vector<Vertex>, std::vector<unsigned int>> Sphere::GenerateMesh()
             indices.push_back(second + 1);
         }
     }
+
     return { vertices, indices };
 }
 
@@ -310,7 +311,7 @@ const std::vector<unsigned int>& Shape::GetIndices() const
     return indices;
 }
 
-const std::vector<Vertex>& Shape::GetVertices() const
+std::vector<Vertex> Shape::GetVertices()
 {
     return vertices;
 }
@@ -345,13 +346,37 @@ Vector4D Shape::GetOrigin() const
 	return origin;
 }
 
-Vector4D Shape::GetPosition() const
+Vector4D Shape::CalculatePosition()
 {
     Vector4D localCenter = calculateLocalCenter(vertices);
     auto m = this->shapeMatrix * localCenter;
     auto n = m.ToArray();
+	SetPosition(Vector4D(n[0], n[1], n[2], 1.0f));
 	return Vector4D(n[0], n[1], n[2], 1.0f);
 }
+
+bool Shape::IsDestroyed() const
+{
+	return destroyed;
+}
+
+void Shape::DestroyBrick() {
+	destroyed = true;
+    if (next != nullptr)
+    {
+        next->RecursiveBrickFall(GetModelMatrix());
+    }
+}
+
+void Shape::RecursiveBrickFall(Matrix4x4 newModelMatrix)
+{
+	if (next != nullptr) {
+		next->RecursiveBrickFall(GetModelMatrix());
+	}
+    
+    SetModelMatrix(newModelMatrix);
+}
+
 
 void Shape::GenerateAndBindBuffers() {
     // Generate and bind vertex arrays

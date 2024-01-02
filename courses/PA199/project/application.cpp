@@ -1,4 +1,4 @@
-// ################################################################################
+﻿// ################################################################################
 // Common Framework for Computer Graphics Courses at FI MUNI.
 // 
 // Copyright (c) 2021-2022 Visitlab (https://visitlab.fi.muni.cz)
@@ -129,52 +129,195 @@ void Application::update(float delta) {
     }
 
     // Waiting to cast the ball
-    if (!isBallMoving)
+    if (!isBallInGame)
     {
         Shape* p = paddles[0];
-        Vector4D paddlePos = p->GetPosition();
+        Vector4D paddlePos = p->CalculatePosition();
 		paddlePos = paddlePos - paddlePos.UnitVector() * ballRadius * ballStartPosCoefOffset;
-        shapes[1].SetModelMatrix(Matrix4x4(1.0).Translate(paddlePos.x, paddlePos.y, paddlePos.z));
+        shapes[ballShapesVectorIndex].SetModelMatrix(Matrix4x4(1.0).Translate(paddlePos.x, ballRadius, paddlePos.z));
+        shapes[ballShapesVectorIndex].isDirectionSet = false;
     }
     else
     {
-        Vector4D dir = Vector4D(-shapes[1].GetPosition().x, 0, -shapes[1].GetPosition().z);
-        SetDirection(shapes[1], dir, 0.00000001f);
-        BallPhysicsUpdate(delta, shapes[1]);
+        // Space press, set initial position and direction
+        if (!shapes[ballShapesVectorIndex].isDirectionSet)
+        {
+            Vector4D currentPos = shapes[ballShapesVectorIndex].CalculatePosition();
+            shapes[ballShapesVectorIndex].SetPosition(currentPos);
+            Vector4D dir = Vector4D(-currentPos.x, 0, -currentPos.z);
+            SetDirection(shapes[ballShapesVectorIndex], dir.UnitVector(), ballSpeed);
+            shapes[ballShapesVectorIndex].isDirectionSet = true;
+        }
+        
+        BallPhysicsUpdate(delta, shapes[ballShapesVectorIndex]);
 
         // Reset the ball if it leaves the ground object
-        BallOutsideGameArea(shapes[1]);
+        BallCollisionDetection(shapes[ballShapesVectorIndex], shapes[ballShapesVectorIndex].position);
     }
-    
 }
 
-void Application::BallOutsideGameArea(Shape& ball) {
-    Vector4D ballPos = ball.GetPosition();
+void Application::BallCollisionDetection(Shape& ball, Vector4D ballPos) {
+   
+	PolarCoords ballPolarCoords = PolarCoords::Cartesian2PC(ballPos.x, ballPos.z);
+	float ballAngle = ballPolarCoords.GetAngle();
+	float distanceFromCenter = ballPolarCoords.GetRadius();
+    float ballRadiusPlus = distanceFromCenter + ballRadius;
+    float ballRadiusMinus = distanceFromCenter - ballRadius;
 
-    if (std::abs(ballPos.x) > groundDiameter || std::abs(ballPos.y) > groundDiameter)
+    if (distanceFromCenter > (groundDiameter*0.5f))
     {
-        isBallMoving = false;
+        isBallInGame = false;
+    }
+    // Potential Collision with bricks
+    else if (ballRadiusMinus <= (brickOuterRadius+1.5f) && ballRadiusPlus >= (brickInnerRadius+1.5f))
+    {   
+        SetDirection(ball, Vector4D(ballPos.x, 0, ballPos.z), ballSpeed);
+        
+        CollisionWithBricks(ball);
+        
+    }
+	// Potential Collision with paddles
+	else if (ballRadiusMinus < paddleOuterRadius && ballRadiusPlus > paddleInnerRadius)
+    {
+        CollisionWithPaddles(ball);
+	}
+}
+
+void Application::NormalizeCollisionAngles(float& ballAngle, float& paddleStartAngle, float& paddleEndAngle) {
+    if (paddleStartAngle > paddleEndAngle) {
+        if (ballAngle > paddleStartAngle || ballAngle < paddleEndAngle) {
+            ballAngle += 2 * M_PI;
+        }
+        paddleEndAngle += 2 * M_PI;
+    }
+}
+
+void Application::CollisionWithPaddles(Shape& ball)
+{
+	Vector4D ballPos = ball.position;
+    PolarCoords ballPolarCoords = PolarCoords::Cartesian2PC(ballPos.x, ballPos.z);
+    
+	for (int p = 0; p < paddles.size(); p++)
+	{
+        ProcessPaddleCollision(ball, paddles[p], ballPolarCoords.GetAngle(), ballPolarCoords.GetRadius());
+	}
+}
+
+void Application::ProcessPaddleCollision(Shape& ball, Shape* paddle, float ballAngle, float distanceFromCenter)
+{
+    Vector4D paddlePos = paddle->CalculatePosition();
+    PolarCoords paddlePolarCoords = PolarCoords::Cartesian2PC(paddlePos.x, paddlePos.z);
+    
+    float paddleAngle = paddlePolarCoords.GetAngle();
+    std::vector<Vertex> verticesVector = paddle->GetVertices();
+    
+    Vector4D startVertex = GetTransformedVertex(paddle, verticesVector.front());
+    Vector4D endVertex = GetTransformedVertex(paddle, verticesVector.back());
+
+    PolarCoords startPC = PolarCoords::Cartesian2PC(startVertex.x, startVertex.z);
+    PolarCoords endPC = PolarCoords::Cartesian2PC(endVertex.x, endVertex.z);
+
+    float paddleStartAngle = startPC.GetAngle();
+    float paddleEndAngle = endPC.GetAngle();
+    
+    NormalizeCollisionAngles(ballAngle, paddleStartAngle, paddleEndAngle);
+
+    if (IsBallWithinObstacleRange(ballAngle, paddleStartAngle, paddleEndAngle))
+    {
+        SetDirection(ball, Vector4D(-ball.position.x, 0, -ball.position.z), ballSpeed);
+    }
+}
+
+bool Application::IsBallWithinObstacleRange(float ballAngle, float obstacleStartAngle, float obstacleEndAngle)
+{
+	return ballAngle >= obstacleStartAngle && ballAngle <= obstacleEndAngle;
+}
+
+Vector4D Application::GetTransformedVertex(Shape* shape, const Vertex& vertex) {
+    return shape->GetModelMatrix() * Vector4D(vertex.x, vertex.y, vertex.z, 1);
+}
+
+void Application::CollisionWithBricks(Shape& ball)
+{
+    Vector4D ballPos = ball.position;
+    float ballDistanceFromCenter = sqrt(ballPos.x * ballPos.x + ballPos.z * ballPos.z);
+
+
+    Vector4D startVertex;
+    Vector4D endVertex;
+    float brickStartAngle;
+    float brickEndAngle;
+    float ballAngle;
+    float startRadius;
+    float endRadius;
+    for (int b = 0; b < groundLevelBricks.size(); b++)
+    {
+        if (groundLevelBricks[b]->IsDestroyed())
+        {
+            break;
+        }
+
+        std::vector<Vertex> verticesVector = groundLevelBricks[b]->GetVertices();
+
+        int lastVertexIndex = verticesVector.size() - 1;
+        startVertex = groundLevelBricks[b]->GetModelMatrix() * Vector4D(verticesVector[0].x, verticesVector[0].y, verticesVector[0].z);
+        endVertex = groundLevelBricks[b]->GetModelMatrix() * Vector4D(verticesVector[lastVertexIndex].x, verticesVector[lastVertexIndex].y, verticesVector[lastVertexIndex].z);
+        
+        PolarCoords startPC = PolarCoords::Cartesian2PC(startVertex.x, startVertex.z);
+        PolarCoords endPC = PolarCoords::Cartesian2PC(endVertex.x, endVertex.z);
+        PolarCoords ballPC = PolarCoords::Cartesian2PC(ballPos.x, ballPos.z);
+
+        // Moving away from the center
+        if (prevRad < ballPC.GetRadius())
+        {
+            PolarCoords ballPC = PolarCoords::Cartesian2PC(-ballPos.x, -ballPos.z);
+        }
+
+        brickStartAngle = startPC.GetAngle();
+        brickEndAngle = endPC.GetAngle();
+        ballAngle = ballPC.GetAngle();
+
+        startRadius = startPC.GetRadius();
+        endRadius = endPC.GetRadius();
+
+		NormalizeCollisionAngles(ballAngle, brickStartAngle, brickEndAngle);
+
+        prevRad = ballPC.GetRadius();
+
+        // FRONT or BACK Collision
+        if ( (brickStartAngle <= ballAngle) && (ballAngle <= brickEndAngle))
+        {
+            if(groundLevelBricks[b] != nullptr)
+            {
+                groundLevelBricks[b]->DestroyBrick();
+            }
+            
+            if (groundLevelBricks[b]->next != nullptr)
+            {
+                groundLevelBricks[b] = groundLevelBricks[b]->next;
+            }
+        }
     }
 }
 
 void Application::BallPhysicsUpdate(float delta, Shape& shape)
 {   
     // Update velocity based on force
-    shape.velocity = shape.velocity * 0.001f + (shape.force * delta * 0.001f);
+    shape.velocity = shape.velocity + (shape.force * delta * 0.001f);
     
     // Update position
-    Vector4D newPosition = shape.GetPosition() + (shape.velocity * delta);
+    Vector4D newPosition = shape.position + (shape.velocity * delta);
 	shape.SetPosition(newPosition);
 
     // Update model matrix
     Matrix4x4 model = shape.GetModelMatrix();
-    model = Matrix4x4(1.0f).Translate(newPosition.x, newPosition.y, newPosition.z);
+    model = Matrix4x4(1.0f).Translate(newPosition.x, ballRadius, newPosition.z);
     shape.SetModelMatrix(model);
 }
 
 void Application::SetDirection(Shape& shape, Vector4D newDirection, float speed) {
     Vector4D unitDirection = newDirection.UnitVector();
-    shape.velocity = unitDirection;
+    shape.velocity = unitDirection * speed;
 }
 
 void Application::startGame() {
@@ -183,33 +326,20 @@ void Application::startGame() {
     cam.setprojectionMatrixToPerspective(45.0f, aspectRatio, 0.1f, 100.0f);
 
     shapes.clear();
+    shapes.reserve(bricksPerStory*numberOfStories + paddleCount + 2);
     Matrix4x4 model = Matrix4x4(1.0f);
 
     /*** SHAPES ***/
 
-    // Ground
-    model = Matrix4x4(1.0);
-    model = model.Rotate(-M_PI/2, Vector4D(1, 0, 0, 0));
-    
-	Circle ground = *new Circle(Vector4D(0, 0, 0, 1), groundDiameter, 360, Vector4D(0, 0, 1, 1));
-	ground.SetTexture(load_texture(lecture_folder_path / "data" / "textures" / "ground.png"));
-    
-    ground.SetModelMatrix(model);
-    shapes.push_back(ground);
-
-    // Ball
-    model = Matrix4x4(1.0).Translate(1, 0, 1);// *Matrix4x4(1.0).Scale(0.25, 0.25, 0.25);
-    
-	Sphere b = *new Sphere(Vector4D(0, 0, 0, 1), ballRadius, 16, 16, Vector4D(0.5, 0.5, 0.5, 1));
-    
-    b.SetModelMatrix(model);
-	
-    shapes.push_back(b);
-    ball = &shapes.back();
+    // Bricks
     
     // Conversion helper
     auto toRadians = [](float degrees) { return degrees * 3.14159265358979323846f / 180.0f; };
     
+    // Initialize bricks to hold all bricks in all stories
+    groundLevelBricks.clear();
+    groundLevelBricks.reserve(bricksPerStory);
+
     // Create bricks with alternating colors
     for (int story = 0; story < numberOfStories; ++story) {
         float yOffset = story * brickHeight;  // Vertical offset for each story along the Y-axis
@@ -220,13 +350,13 @@ void Application::startGame() {
 
             // Calculate the position in polar coordinates and then convert to Cartesian
             Vector4D position(
-                (radius + brickInnerRadius) * sin(currentAngleRadians), // X coordinate
+                (brickWidth + brickInnerRadius) * sin(currentAngleRadians), // X coordinate
                 yOffset,  // Adjust Y for story offset
-                (radius + brickInnerRadius) * cos(currentAngleRadians), // Z coordinate
+                (brickWidth + brickInnerRadius) * cos(currentAngleRadians), // Z coordinate
                 1
             );
 
-            // Cycle through the color array
+            // Loop through the color array
             Vector4D brickColor = colors[(i+story+1) % colors.size()];
 
             Brick brick(Vector4D(0,0,0,1), brickInnerRadius, brickWidth, brickHeight, bricksPerStory, brickDetail, brickColor);
@@ -238,8 +368,40 @@ void Application::startGame() {
             brick.SetModelMatrix(brickModel);
 
             shapes.push_back(brick);
+
+            shapes.back().next = nullptr;
+
+            // Link each brick to the corresponding brick in the story above
+            if (story > 0)
+            {
+                shapes[(story - 1) * bricksPerStory + i].next = &shapes.back();
+            }
+            else
+            {
+                groundLevelBricks.push_back(&shapes.back());
+            }
         }
     }
+
+    // Ground
+    model = Matrix4x4(1.0);
+    model = model.Rotate(-M_PI / 2, Vector4D(1, 0, 0, 0));
+
+    Circle ground = *new Circle(Vector4D(0, 0, 0, 1), groundDiameter*0.5f, 360, Vector4D(0, 0, 1, 1));
+    ground.SetTexture(load_texture(lecture_folder_path / "data" / "textures" / "ground.png"));
+
+    ground.SetModelMatrix(model);
+    shapes.push_back(ground);
+
+    // Ball
+    model = Matrix4x4(1.0).Translate(1, 0, 1);
+    
+    Sphere b = *new Sphere(Vector4D(0, 0, 0, 1), ballRadius, 16, 16, Vector4D(0.5, 0.5, 0.5, 1));
+
+    b.SetModelMatrix(model);
+
+    shapes.push_back(b);
+    ball = &shapes.back();
 
     // Paddle creation
     for (int i = 0; i < paddleCount; ++i) {
@@ -283,11 +445,11 @@ void Application::render() {
     }
 
     // VIEW
-    float distance = 5.0f * sqrt(2.0f);
+    float distance = 30.0f * sqrt(2.0f);
     float pitchAngleRadians = 45.0f * M_PI / 180.0f;
 
     Vector4D cameraPosition = (orthographicProj) ?
-        Vector4D(0.0f, 2.0f, 0.0000001f, 1.0f) :
+        Vector4D(0.0f, 5.0f, 0.0001f, 1.0f) :
         Vector4D(
             0.0f, // x
             distance * sin(pitchAngleRadians), // y
@@ -329,6 +491,11 @@ void Application::render() {
     
     // RENDERING OBJECTS
     for (int i = 0; i < shapes.size(); i++) {
+        if (shapes[i].IsDestroyed())
+        {
+            continue;
+        }
+
         glDisable(GL_DEPTH_TEST);
         if (i > 0) {
             glEnable(GL_DEPTH_TEST);
@@ -378,7 +545,7 @@ void Application::on_mouse_button(int button, int action, int mods) {}
 
 void Application::on_key_pressed(int key, int scancode, int action, int mods) {
     float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
-    float scale = height / 256.0f;
+    float scale = height / 48.0f;
         
     // KEY REALEASE
     if (action == GLFW_RELEASE) {
@@ -411,7 +578,7 @@ void Application::on_key_pressed(int key, int scancode, int action, int mods) {
                 right = true;
                 break;
 			case GLFW_KEY_SPACE:
-				isBallMoving = true;
+				isBallInGame = true;
 				break;
         }
     }

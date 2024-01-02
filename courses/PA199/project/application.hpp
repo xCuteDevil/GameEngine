@@ -13,6 +13,7 @@
 #include "Opengl/Mesh/Mesh.hpp"
 #include "Engine/Vector4D/Vector4D.hpp"
 #include "Engine/Matrix4x4/Matrix4x4.hpp"
+#include "Engine/PolarCoords/PolarCoords.hpp"
 //#include "Engine/Vertex/Vertex.hpp"
 
 
@@ -22,29 +23,31 @@ class Application : public IApplication {
     // ----------------------------------------------------------------------------
 private:
     bool orthographicProj = false;
-    bool isBallMoving = false;
     bool left = false, right = false;
 
     // Brick configuration
     const int bricksPerStory = 12;
-    const int numberOfStories = 3;
-    const float brickHeight = 0.2f;
-    const float brickWidth = 0.2f;
-    const float radius = 1.5f;
+    const int numberOfStories = 4;
+    const float brickHeight = 1.0f;
+    const float brickWidth = 1.0f;
     const int brickDetail = 5;
-    const float brickInnerRadius = 0.4f;
+    const float brickInnerRadius = 1.7f;
+    const float brickOuterRadius = brickInnerRadius + brickWidth;
     
 
     // Paddle configuration
     const int paddleCount = 3;
-    const float paddleWidth = 0.2f;
-    const float paddleHeight = 0.2f;
-    const float paddleInnerRadius = 2.5f;
+    const float paddleWidth = 1.0f;
+    const float paddleHeight = 1.0f;
+    const float paddleInnerRadius = 11.0f;
+    float paddleOuterRadius = paddleInnerRadius + paddleWidth;
     const int paddleDetail = 36;
     
 	// Ground configuration
-	const float groundDiameter = 3.0f;
+	const float groundDiameter = 28.0f;
     
+    bool collisionDetected = false;
+    double prevRad = 0.0f;
     
     GLuint vertex_shader;
     GLuint fragment_shader;
@@ -55,9 +58,13 @@ private:
     GLuint texture;
     Camera cam;
     
+    bool isBallInGame = false;
+    const float ballRadius = 0.4f;
+    const float ballStartPosCoefOffset = 1.0f;
+    const int ballShapesVectorIndex = numberOfStories * bricksPerStory + 1;
+    float ballSpeed = 0.01f;
     
-    float ballRadius = 0.12f;
-    float ballStartPosCoefOffset = 0.8f;
+    
     
     // ----------------------------------------------------------------------------
     // Variables (Geometry)
@@ -65,6 +72,7 @@ private:
     std::vector<Shape> shapes;
     std::vector<Shape*> paddles;
     Shape* ball = nullptr;
+	std::vector<Shape*> groundLevelBricks;
     
     // ----------------------------------------------------------------------------
     // Constructors & Destructors
@@ -104,9 +112,18 @@ public:
     
     void BallPhysicsUpdate(float delta, Shape& shape);
 
-    void BallOutsideGameArea(Shape& shape);
+    void BallCollisionDetection(Shape& shape, Vector4D ballPos);
 
+    void CollisionWithBricks(Shape& ball);
+
+    void CollisionWithPaddles(Shape& ball);
+    void ProcessPaddleCollision(Shape& ball, Shape* paddle, float ballAngle, float distanceFromCenter);
+    
+    Vector4D GetTransformedVertex(Shape* shape, const Vertex& vertex);
+    bool IsBallWithinObstacleRange(float ballAngle, float obstacleStartAngle, float obstacleEndAngle);
     void SetDirection(Shape& shape, Vector4D newDirection, float speed);
+
+    void NormalizeCollisionAngles(float& ballAngle, float& obstacleStartAngle, float& obstacleEndAngle);
 
     std::vector<Vector4D> colors = {
         Vector4D(1, 1, 0, 1), // Yellow

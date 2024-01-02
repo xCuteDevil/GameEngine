@@ -37,5 +37,5 @@ void PolarCoords::PC2Cartesian(double &x, double &y)
 {
    double r = sqrt(x * x + y * y);
    double theta = atan2(y, x);
-   return PolarCoords(r, theta);
+   return PolarCoords(r, theta).NormaliseAngle();
 }

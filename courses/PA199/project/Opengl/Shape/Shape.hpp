@@ -27,13 +27,14 @@ class Shape {
       std::vector<Vertex> vertices;
       std::vector<unsigned int> indices;
       void CalculateNormals(std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices);
+      bool destroyed = false;
       
    public:
 	  Vector4D velocity = Vector4D(0, 0, 0);
-	  Vector4D force = Vector4D(1.0f, 0.0f, 1.0f);
+	  Vector4D force = Vector4D(0.0f, 0.0f, 0.0f);
 	  Vector4D position = Vector4D(0.0f, 0.0f, 0.0f);
-      
-	  float mass = 10.0f;
+      bool isDirectionSet = false;
+      Shape* next;
        
       Shape(Vector4D _origin, Vector4D _colour){
          origin = _origin;
@@ -45,14 +46,15 @@ class Shape {
       // Getters
       Matrix4x4 GetModelMatrix();
       const std::vector<unsigned int>& GetIndices() const;
-      const std::vector<Vertex>& GetVertices() const;
+      std::vector<Vertex> GetVertices();
       unsigned int GetVertexArray() const;
       unsigned int GetVertexBuffer() const;
       unsigned int GetIndexBuffer() const;
       unsigned int GetTexture() const;
 	  Vector4D GetColour() const;
       Vector4D GetOrigin() const;
-      Vector4D GetPosition() const;
+      Vector4D CalculatePosition();
+	  bool IsDestroyed() const;
       
       // Setters
       void SetTexture(unsigned int texture);
@@ -62,6 +64,9 @@ class Shape {
       void ConfigureVertexAttributes();
       void SetArrays();
 	  void SetPosition(Vector4D position);
+      
+      void DestroyBrick();
+	  void RecursiveBrickFall(Matrix4x4 newModelMatrix);
 };
 
 class Circle : public Shape {
@@ -127,6 +132,7 @@ public:
     Brick(Vector4D _origin, float _innerRadius, float _width, float _height, int _count, int _detail, Vector4D _colour)
         : Shape(_origin, _colour), innerRadius(_innerRadius), width(_width), height(_height), count(_count), detail(_detail) {
         std::pair<std::vector<Vertex>, std::vector<unsigned int>> meshData = GenerateMesh(innerRadius, width, height, count, detail);
+        vertices.reserve( (detail+1) * 8 + 8);
         vertices = std::move(meshData.first);
         indices = std::move(meshData.second);
         SetArrays();
