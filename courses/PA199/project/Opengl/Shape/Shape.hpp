@@ -68,6 +68,11 @@ class Shape {
       
       void DestroyBrick();
 	  void RecursiveBrickFall(Matrix4x4 prevBrickModelMatrix, bool alreadyDestroyedOne);
+      void Update(float delta);
+      void StartCooldown();
+      bool isOnCooldown = false;
+      float cooldownTimer = 0.0f; // time elapsed
+	  float cooldownDuration = 100.0f; // time to wait
 };
 
 class Circle : public Shape {

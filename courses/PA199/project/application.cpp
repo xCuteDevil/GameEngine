@@ -153,6 +153,40 @@ void Application::update(float delta) {
 
         // Reset the ball if it leaves the ground object
         BallCollisionDetection(shapes[ballShapesVectorIndex], shapes[ballShapesVectorIndex].position);
+        
+        // Handles the colission cooldown period for each brick after a collision.
+        int i = 0;
+        while(i < bricksPerStory) {
+            groundLevelBricks[i]->Update(delta);
+            i++;
+        }
+    }
+}
+
+void Application::BallCollisionDetection(Shape& ball, Vector4D ballPos) {
+
+    PolarCoords ballPolarCoords = PolarCoords::Cartesian2PC(ballPos.x, ballPos.z);
+    float ballAngle = ballPolarCoords.GetAngle();
+    float distanceFromCenter = ballPolarCoords.GetRadius();
+    float ballRadiusPlus = distanceFromCenter + ballRadius;
+    float ballRadiusMinus = distanceFromCenter - ballRadius;
+
+    if (distanceFromCenter > (groundDiameter * 0.5f))
+    {
+        isBallInGame = false;
+    }
+    // Potential Collision with bricks
+    else if (ballRadiusMinus <= (brickOuterRadius + 1.5f) && ballRadiusPlus >= (brickInnerRadius))
+    {
+        //SetDirection(ball, Vector4D(ballPos.x, 0, ballPos.z), ballSpeed);
+
+        CollisionWithBricks(ball);
+
+    }
+    // Potential Collision with paddles
+    else if (ballRadiusMinus < paddleOuterRadius && ballRadiusPlus > paddleInnerRadius)
+    {
+        CollisionWithPaddles(ball);
     }
 }
 
@@ -213,33 +247,6 @@ void Application::ReflectBall(Shape& ball, const Vector4D& normal, float speed)
 Vector4D Application::Reflect(const Vector4D& direction, const Vector4D& normal)
 {
     return direction - normal * 2 * (direction.DotProduct(normal));
-}
-
-void Application::BallCollisionDetection(Shape& ball, Vector4D ballPos) {
-   
-	PolarCoords ballPolarCoords = PolarCoords::Cartesian2PC(ballPos.x, ballPos.z);
-	float ballAngle = ballPolarCoords.GetAngle();
-	float distanceFromCenter = ballPolarCoords.GetRadius();
-    float ballRadiusPlus = distanceFromCenter + ballRadius;
-    float ballRadiusMinus = distanceFromCenter - ballRadius;
-
-    if (distanceFromCenter > (groundDiameter*0.5f))
-    {
-        isBallInGame = false;
-    }
-    // Potential Collision with bricks
-    else if (ballRadiusMinus <= (brickOuterRadius+1.5f) && ballRadiusPlus >= (brickInnerRadius+1.5f))
-    {   
-        //SetDirection(ball, Vector4D(ballPos.x, 0, ballPos.z), ballSpeed);
-        
-        CollisionWithBricks(ball);
-        
-    }
-	// Potential Collision with paddles
-	else if (ballRadiusMinus < paddleOuterRadius && ballRadiusPlus > paddleInnerRadius)
-    {
-        CollisionWithPaddles(ball);
-	}
 }
 
 void Application::NormalizeCollisionAngles(float& ballAngle, float& paddleStartAngle, float& paddleEndAngle) {
@@ -304,10 +311,12 @@ void Application::CollisionWithBricks(Shape& ball)
 
     for (int b = 0; b < groundLevelBricks.size(); b++)
     {
-        if (!groundLevelBricks[b]->IsColumnDestroyed())
+        if (!groundLevelBricks[b]->IsColumnDestroyed() && !groundLevelBricks[b]->isOnCooldown)
         {
             bool collided = ProcessBrickCollision(ball, groundLevelBricks[b], ballPolarCoords.GetAngle(), ballDistanceFromCenter);
+            // Colission found, stop 
             if (collided) {
+                groundLevelBricks[b]->StartCooldown();
                 return;
             }
         }

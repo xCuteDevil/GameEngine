@@ -386,13 +386,10 @@ void Shape::RecursiveBrickFall(Matrix4x4 prevBrickModelMatrix, bool destroyThisB
         destroyThisBrick = false;
     }
 
-    // If there's a next brick, recursively adjust its position and destroy it if needed.
     if (next != nullptr) {
         next->RecursiveBrickFall(GetModelMatrix(), destroyThisBrick);
     }
 
-    // If this brick is not destroyed, move it to the position of the brick above it.
-    // If it is destroyed, it's already at the correct position and shouldn't fall.
     if (!destroyed) {
         SetModelMatrix(prevBrickModelMatrix);
     }
@@ -449,4 +446,23 @@ void Shape::SetArrays() {
 void Shape::SetPosition(Vector4D p)
 {
     position = p;
+}
+
+void Shape::StartCooldown()
+{
+    isOnCooldown = true;
+    cooldownTimer = cooldownDuration;
+}
+
+void Shape::Update(float delta)
+{
+    // If the brick is on cooldown, decrement the timer
+    if (isOnCooldown)
+    {
+        cooldownTimer -= delta; // delta is the time passed since the last frame
+        if (cooldownTimer <= 0)
+        {
+            isOnCooldown = false;
+        }
+    }
 }

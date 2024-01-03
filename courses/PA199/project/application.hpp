@@ -62,7 +62,7 @@ private:
     const float ballRadius = 0.4f;
     const float ballStartPosCoefOffset = 1.0f;
     const int ballShapesVectorIndex = numberOfStories * bricksPerStory + 1;
-    float ballSpeed = 0.01f;
+    float ballSpeed = 0.02f; // Should be between 0.01f and 0.06f
 
 
 
