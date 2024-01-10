@@ -29,9 +29,9 @@ private:
     const int bricksPerStory = 12;
     const int numberOfStories = 4;
     const float brickHeight = 1.0f;
-    const float brickWidth = 1.0f;
+    const float brickWidth = 1.5f;
     const int brickDetail = 5;
-    const float brickInnerRadius = 1.7f;
+    const float brickInnerRadius = 2.5f;
     const float brickOuterRadius = brickInnerRadius + brickWidth;
 
 
@@ -59,11 +59,14 @@ private:
     Camera cam;
 
     bool isBallInGame = false;
-    const float ballRadius = 0.4f;
+    const float ballRadius = 0.5f;
     const float ballStartPosCoefOffset = 1.0f;
     const int ballShapesVectorIndex = numberOfStories * bricksPerStory + 1;
-    float ballSpeed = 0.02f; // Should be between 0.01f and 0.06f
+    float ballSpeed = 0.01f; // Should be between 0.01f and 0.02f
+	float paddleSpeed = 0.015f;
 
+    float brickCooldownDuration = 100.0f; // time to wait
+    float paddleCooldownDuration = 1000.0f; // time to wait
 
 
     // ----------------------------------------------------------------------------
@@ -112,7 +115,7 @@ public:
 
     void BallPhysicsUpdate(float delta, Shape& shape);
 
-    void BallCollisionDetection(Shape& shape, Vector4D ballPos);
+    void BroadPhaseDetection(Shape& ball);
 
     void CollisionWithBricks(Shape& ball);
     bool ProcessBrickCollision(Shape& ball, Shape* brick, float ballAngle, float distanceFromCenter);
@@ -121,14 +124,14 @@ public:
     void ReflectBall(Shape& ball, const Vector4D& normal, float speed);
 
     void CollisionWithPaddles(Shape& ball);
-    void ProcessPaddleCollision(Shape& ball, Shape* paddle, float ballAngle, float distanceFromCenter);
+    bool ProcessPaddleCollision(Shape& ball, Shape* paddle, float ballAngle, float distanceFromCenter);
 
     Vector4D GetTransformedVertex(Shape* shape, const Vertex& vertex);
     bool IsBallWithinObstacleRange(float ballAngle, float obstacleStartAngle, float obstacleEndAngle);
     void SetDirection(Shape& shape, Vector4D newDirection, float speed);
 
     void NormalizeCollisionAngles(float& ballAngle, float& obstacleStartAngle, float& obstacleEndAngle);
-
+	Vector4D ClosestPointOnTheLine(Vector4D lineStart, Vector4D lineEnd, Vector4D point);
 
     std::vector<Vector4D> colors = {
         Vector4D(1, 1, 0, 1), // Yellow

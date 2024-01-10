@@ -109,3 +109,11 @@ float* Vector4D::ToArray() const {
     array[3] = static_cast<float>(w);
     return array;
 }
+
+bool Vector4D::Equals(const Vector4D& v1, const Vector4D& v2, int precision) {
+    double tolerance = std::pow(10.0, -precision);
+    return std::abs(v1.x - v2.x) < tolerance &&
+        std::abs(v1.y - v2.y) < tolerance &&
+        std::abs(v1.z - v2.z) < tolerance &&
+        std::abs(v1.w - v2.w) < tolerance;
+}

@@ -101,12 +101,12 @@ std::pair<std::vector<Vertex>, std::vector<unsigned int>> Sphere::GenerateMesh()
 std::pair<std::vector<Vertex>, std::vector<unsigned int>> Brick::GenerateMesh(
     float innerRadius, float width, float height, int count, int detail) {
 
-    std::vector<Vertex> vertices;
+    /*std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
 
     float outerRadius = innerRadius + width;
     float brickAngle = (2.0f * M_PI) / count;
-    float angleIncrement = brickAngle / detail;
+    float angleIncrement = brickAngle / detail;*/
     
 	Paddle p(GetOrigin(), innerRadius, width, height, 2*M_PI/count, detail, GetColour());
     return { p.GetVertices(), p.GetIndices()};
@@ -448,7 +448,7 @@ void Shape::SetPosition(Vector4D p)
     position = p;
 }
 
-void Shape::StartCooldown()
+void Shape::StartCooldown(float cooldownDuration)
 {
     isOnCooldown = true;
     cooldownTimer = cooldownDuration;

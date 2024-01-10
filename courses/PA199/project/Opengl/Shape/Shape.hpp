@@ -35,6 +35,7 @@ class Shape {
 	  Vector4D position = Vector4D(0.0f, 0.0f, 0.0f);
       bool isDirectionSet = false;
       Shape* next;
+      Vector4D previousPosition;
        
       Shape(Vector4D _origin, Vector4D _colour){
          origin = _origin;
@@ -69,10 +70,10 @@ class Shape {
       void DestroyBrick();
 	  void RecursiveBrickFall(Matrix4x4 prevBrickModelMatrix, bool alreadyDestroyedOne);
       void Update(float delta);
-      void StartCooldown();
+      void StartCooldown(float duration);
       bool isOnCooldown = false;
       float cooldownTimer = 0.0f; // time elapsed
-	  float cooldownDuration = 100.0f; // time to wait
+	  
 };
 
 class Circle : public Shape {

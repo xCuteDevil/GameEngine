@@ -22,6 +22,7 @@ public:
     Vector4D Homogenize() const;
     bool IsNormalized() const;
     bool IsParallel(const Vector4D& v1) const;
+    static bool Equals(const Vector4D& v1, const Vector4D& v2, int precision);
 
 	/* Operator overloads */
     Vector4D operator+(const Vector4D& addend) const; // Vector addition

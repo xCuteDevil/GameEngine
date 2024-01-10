@@ -113,7 +113,9 @@ void Application::update(float delta) {
         for (int i = 0; i < paddles.size(  ); ++i) {
             Shape* p = paddles[i];
 			Matrix4x4 model = p->GetModelMatrix();
-            model = model * Matrix4x4(1.0).Rotate(toRadians(90) * delta * 0.001, Vector4D(0, 1, 0, 0));
+            //float paddleSpeed = toRadians(90) * delta * 0.0006;
+            float speed = paddleSpeed/(toRadians(90) * delta);
+            model = model * Matrix4x4(1.0).Rotate(toRadians(90) * delta * speed, Vector4D(0, 1, 0, 0));
 			p->SetModelMatrix(model);
         }
     }
@@ -123,7 +125,8 @@ void Application::update(float delta) {
         for (int i = 0; i < paddles.size(); ++i) {
             Shape* p = paddles[i];
             Matrix4x4 model = p->GetModelMatrix(  );
-            model = model * Matrix4x4(1.0).Rotate(toRadians ( - 90) * delta * 0.001, Vector4D(0, 1, 0, 0));
+            float speed = paddleSpeed / (toRadians(-90) * delta);
+            model = model * Matrix4x4(1.0).Rotate(toRadians(90) * delta * speed, Vector4D(0, 1, 0, 0));
             p->SetModelMatrix(model);
         }
     }
@@ -151,8 +154,7 @@ void Application::update(float delta) {
         
         BallPhysicsUpdate(delta, shapes[ballShapesVectorIndex]);
 
-        // Reset the ball if it leaves the ground object
-        BallCollisionDetection(shapes[ballShapesVectorIndex], shapes[ballShapesVectorIndex].position);
+        BroadPhaseDetection(shapes[ballShapesVectorIndex]);
         
         // Handles the colission cooldown period for each brick after a collision.
         int i = 0;
@@ -160,12 +162,18 @@ void Application::update(float delta) {
             groundLevelBricks[i]->Update(delta);
             i++;
         }
+        i = 0;
+        while (i < paddles.size())
+        {
+            paddles[i]->Update(delta);
+            i++;
+        }
     }
 }
 
-void Application::BallCollisionDetection(Shape& ball, Vector4D ballPos) {
+void Application::BroadPhaseDetection(Shape& ball) {
 
-    PolarCoords ballPolarCoords = PolarCoords::Cartesian2PC(ballPos.x, ballPos.z);
+    PolarCoords ballPolarCoords = PolarCoords::Cartesian2PC(ball.position.x, ball.position.z);
     float ballAngle = ballPolarCoords.GetAngle();
     float distanceFromCenter = ballPolarCoords.GetRadius();
     float ballRadiusPlus = distanceFromCenter + ballRadius;
@@ -176,10 +184,8 @@ void Application::BallCollisionDetection(Shape& ball, Vector4D ballPos) {
         isBallInGame = false;
     }
     // Potential Collision with bricks
-    else if (ballRadiusMinus <= (brickOuterRadius + 1.5f) && ballRadiusPlus >= (brickInnerRadius))
+    else if (ballRadiusMinus <= (brickOuterRadius) && ballRadiusPlus >= (brickInnerRadius))
     {
-        //SetDirection(ball, Vector4D(ballPos.x, 0, ballPos.z), ballSpeed);
-
         CollisionWithBricks(ball);
 
     }
@@ -223,13 +229,14 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
     return false;
 }
 
-Vector4D Application::CalculateCollisionNormal(const Vector4D& ballPosition, const Vector4D& brickPosition)
+Vector4D Application::CalculateCollisionNormal(const Vector4D& ballPosition, const Vector4D& obstaclePosition)
 {
     Vector4D normal = ballPosition.UnitVector();
     PolarCoords ballPolarCoords = PolarCoords::Cartesian2PC(ballPosition.x, ballPosition.z);
-    PolarCoords brickPolarCoords = PolarCoords::Cartesian2PC(brickPosition.x, brickPosition.z);
+    PolarCoords brickPolarCoords = PolarCoords::Cartesian2PC(obstaclePosition.x, obstaclePosition.z);
 
-    if (ballPolarCoords.GetRadius() < brickPolarCoords.GetRadius())
+    // Front or back collision
+    if ((ballPolarCoords.GetRadius()) < brickPolarCoords.GetRadius())
     {
         normal = normal.OppositeVector();
     }
@@ -241,7 +248,7 @@ void Application::ReflectBall(Shape& ball, const Vector4D& normal, float speed)
     Vector4D direction = ball.velocity.UnitVector();
     Vector4D newDirection = Reflect(direction, normal);
     newDirection.y = 0;
-    SetDirection(ball, newDirection, ballSpeed);
+    SetDirection(ball, newDirection, speed);
 }
 
 Vector4D Application::Reflect(const Vector4D& direction, const Vector4D& normal)
@@ -265,15 +272,38 @@ void Application::CollisionWithPaddles(Shape& ball)
     
 	for (int p = 0; p < paddles.size(); p++)
 	{
-        ProcessPaddleCollision(ball, paddles[p], ballPolarCoords.GetAngle(), ballPolarCoords.GetRadius());
+        if (!paddles[p]->isOnCooldown)
+        {
+            bool collided = ProcessPaddleCollision(ball, paddles[p], ballPolarCoords.GetAngle(), ballPolarCoords.GetRadius());
+            // Colission found, stop 
+            if (collided) {
+                paddles[p]->StartCooldown(paddleCooldownDuration);
+                return;
+            }
+        }
 	}
 }
 
-void Application::ProcessPaddleCollision(Shape& ball, Shape* paddle, float ballAngle, float distanceFromCenter)
+bool Application::ProcessPaddleCollision(Shape& ball, Shape* paddle, float ballAngle, float ballDistanceFromCenter)
 {
     Vector4D paddlePos = paddle->CalculatePosition();
     PolarCoords paddlePolarCoords = PolarCoords::Cartesian2PC(paddlePos.x, paddlePos.z);
     
+    // Paddle's angular velocity if the paddle is moving
+    float angularVelocity = 0.0f;
+    if (right || left) {
+        angularVelocity = 0.1f;
+    }
+    
+
+    // Determine the direction of the paddle's movement (clockwise or counterclockwise)
+    Vector4D tangentialDirection(sin( - paddlePolarCoords.GetAngle()), 0, cos(paddlePolarCoords.GetAngle()), 0);
+    if (right) {
+        // For 'right' movement, reverse the direction
+        tangentialDirection = Vector4D(sin(paddlePolarCoords.GetAngle()), 0, cos(-paddlePolarCoords.GetAngle()), 0);
+    }
+    Vector4D paddleVelocity = tangentialDirection * angularVelocity;
+
     float paddleAngle = paddlePolarCoords.GetAngle();
     std::vector<Vertex> verticesVector = paddle->GetVertices();
     
@@ -283,15 +313,78 @@ void Application::ProcessPaddleCollision(Shape& ball, Shape* paddle, float ballA
     PolarCoords startPC = PolarCoords::Cartesian2PC(startVertex.x, startVertex.z);
     PolarCoords endPC = PolarCoords::Cartesian2PC(endVertex.x, endVertex.z);
 
-    float paddleStartAngle = startPC.GetAngle();
-    float paddleEndAngle = endPC.GetAngle();
+    float paddleStartAngle = startPC.GetAngle(); // on the outer radius
+    float paddleEndAngle = endPC.GetAngle(); // on the inner radius
     
     NormalizeCollisionAngles(ballAngle, paddleStartAngle, paddleEndAngle);
 
+    // Front-side paddle collision
     if (IsBallWithinObstacleRange(ballAngle, paddleStartAngle, paddleEndAngle))
     {
-        SetDirection(ball, Vector4D(-ball.position.x, 0, -ball.position.z), ballSpeed);
+        // Reflect the ball's direction based on the collision
+        Vector4D collisionNormal = CalculateCollisionNormal(Vector4D(ball.position.x, 0, ball.position.z), Vector4D(paddlePos.x, 0, paddlePos.z));
+        Vector4D newDirection = Reflect(ball.velocity, collisionNormal);
+
+        // Apply the slice effect based on the paddle's velocity
+        float frictionCoefficient = 0.05f;
+        Vector4D sliceForce = paddleVelocity * frictionCoefficient;
+        newDirection = newDirection + sliceForce;
+
+        SetDirection(ball, newDirection.UnitVector(), ballSpeed);
+        return true;
     }
+    
+    float BallRadiusAngle = atan(ballRadius / ballDistanceFromCenter);
+    // Start-side paddle collision
+    if (IsBallWithinObstacleRange(ballAngle, paddleStartAngle - BallRadiusAngle, paddleStartAngle))
+    {
+        Vector4D center(0, 0, 0, 1);
+        Vector4D outerPaddleRadiusStartVertex = Vector4D(startVertex.x, 0, startVertex.z);
+        Vector4D directionToCenter = center - outerPaddleRadiusStartVertex;
+        directionToCenter = directionToCenter.UnitVector(); 
+        Vector4D innerPaddleRadiusStartVertex = outerPaddleRadiusStartVertex + directionToCenter * paddleWidth;
+        Vector4D closestPointOnThePaddleSide = ClosestPointOnTheLine(innerPaddleRadiusStartVertex, outerPaddleRadiusStartVertex,ball.position);
+        Vector4D newDirection = (Vector4D(ball.position.x, 0, ball.position.z) - closestPointOnThePaddleSide).UnitVector();
+        if (Vector4D::Equals(innerPaddleRadiusStartVertex,closestPointOnThePaddleSide,3)) {
+            // Corner collision
+            SetDirection(ball, newDirection, ballSpeed);
+        }
+        // So that ball is faster than paddle if it goes along with it 
+        SetDirection(ball, newDirection, paddleSpeed);
+        return true;
+    }
+    // End-side paddle collision
+    if (IsBallWithinObstacleRange(ballAngle, paddleEndAngle, paddleEndAngle + BallRadiusAngle))
+    {
+        Vector4D center(0, 0, 0, 1);
+        Vector4D innerPaddleRadiusStartVertex = Vector4D(endVertex.x, 0, endVertex.z);
+        Vector4D directionToCenter = center - innerPaddleRadiusStartVertex;
+        directionToCenter = directionToCenter.UnitVector();
+        Vector4D outerPaddleRadiusStartVertex = innerPaddleRadiusStartVertex - directionToCenter * paddleWidth;
+        Vector4D closestPointOnThePaddleSide = ClosestPointOnTheLine(outerPaddleRadiusStartVertex, innerPaddleRadiusStartVertex, ball.position);
+        Vector4D newDirection = (Vector4D(ball.position.x, 0, ball.position.z) - closestPointOnThePaddleSide).UnitVector();
+        if (Vector4D::Equals(innerPaddleRadiusStartVertex, closestPointOnThePaddleSide, 3)) {
+            // Corner collision
+            SetDirection(ball, newDirection, ballSpeed);
+        }
+        // So that ball is faster than paddle if it goes along with it 
+        SetDirection(ball, newDirection, paddleSpeed);
+        return true;
+    }
+    return false;
+}
+
+Vector4D Application::ClosestPointOnTheLine(Vector4D lineStart, Vector4D lineEnd, Vector4D point)
+{    
+    Vector4D lineVec = lineEnd - lineStart;
+    Vector4D pointVec = point - lineStart;
+    double lineLengthSquared = lineVec.DotProduct(lineVec);
+    // Project pointVec onto lineVec
+    double t = pointVec.DotProduct(lineVec) / lineLengthSquared;
+    t = std::max(0.0, std::min(1.0, t));
+    Vector4D closestPoint = lineStart + lineVec * t;
+
+    return closestPoint;
 }
 
 bool Application::IsBallWithinObstacleRange(float ballAngle, float obstacleStartAngle, float obstacleEndAngle)
@@ -316,7 +409,7 @@ void Application::CollisionWithBricks(Shape& ball)
             bool collided = ProcessBrickCollision(ball, groundLevelBricks[b], ballPolarCoords.GetAngle(), ballDistanceFromCenter);
             // Colission found, stop 
             if (collided) {
-                groundLevelBricks[b]->StartCooldown();
+                groundLevelBricks[b]->StartCooldown(brickCooldownDuration);
                 return;
             }
         }
@@ -326,7 +419,7 @@ void Application::CollisionWithBricks(Shape& ball)
 void Application::BallPhysicsUpdate(float delta, Shape& shape)
 {   
     // Update velocity based on force
-    shape.velocity = shape.velocity + (shape.force * delta * 0.001f);
+    //shape.velocity = shape.velocity + (shape.force * delta * 0.001f);
     
     // Update position
     Vector4D newPosition = shape.position + (shape.velocity * delta);
@@ -385,9 +478,8 @@ void Application::startGame() {
             Brick brick(Vector4D(0,0,0,1), brickInnerRadius, brickWidth, brickHeight, bricksPerStory, brickDetail, brickColor);
 
             // Initial transformation: place the brick at the calculated position and rotate to face outward
-            Matrix4x4 brickModel = Matrix4x4::Translate(0,position.y,0)
-                * Matrix4x4(1.0).Rotate(-currentAngleRadians, Vector4D(0, 1, 0, 0))
-                * Matrix4x4::Scale(1.5, 1, 1.5);
+            Matrix4x4 brickModel = Matrix4x4::Translate(0, position.y, 0)
+                * Matrix4x4(1.0).Rotate(-currentAngleRadians, Vector4D(0, 1, 0, 0));
             brick.SetModelMatrix(brickModel);
 
             shapes.push_back(brick);
