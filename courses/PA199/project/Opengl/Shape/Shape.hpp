@@ -57,6 +57,7 @@ class Shape {
       Vector4D CalculatePosition();
 	  bool IsDestroyed() const;
       bool IsColumnDestroyed();
+	  bool SetDestroyed(bool destroyed);
       
       // Setters
       void SetTexture(unsigned int texture);
@@ -67,8 +68,8 @@ class Shape {
       void SetArrays();
 	  void SetPosition(Vector4D position);
       
-      void DestroyBrick();
-	  void RecursiveBrickFall(Matrix4x4 prevBrickModelMatrix, bool alreadyDestroyedOne);
+      bool DestroyBrick();
+	  bool RecursiveBrickFall(Matrix4x4 prevBrickModelMatrix, bool alreadyDestroyedOne);
       void Update(float delta);
       void StartCooldown(float duration);
       bool isOnCooldown = false;

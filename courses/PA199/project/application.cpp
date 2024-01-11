@@ -62,6 +62,8 @@ Application::Application(int initial_width, int initial_height, std::vector<std:
     : IApplication(initial_width, initial_height, arguments)
     , vertex_shader(load_shader(lecture_folder_path / "data" / "shaders" / "sample.vert", GL_VERTEX_SHADER))
     , fragment_shader(load_shader(lecture_folder_path / "data" / "shaders" / "sample.frag", GL_FRAGMENT_SHADER))
+    , texture_vertex_shader(load_shader(lecture_folder_path / "data" / "shaders" / "texture_vertex_shader.vert", GL_VERTEX_SHADER))
+    , texture_fragment_shader(load_shader(lecture_folder_path / "data" / "shaders" / "texture_fragment_shader.frag", GL_FRAGMENT_SHADER))
     , shader_program([](GLuint const  vertex_shader, GLuint const  fragment_shader) -> GLuint {
             GLuint const  shader_program = glCreateProgram();
             assert(glGetError() == 0U && shader_program != 0);
@@ -76,8 +78,67 @@ Application::Application(int initial_width, int initial_height, std::vector<std:
             glDetachShader(shader_program, fragment_shader);
             assert(glGetError() == 0U);
             return shader_program;
-            }(vertex_shader, fragment_shader))
-    , texture(load_texture(lecture_folder_path / "data" / "textures" / "you_win.png"))
+    }(vertex_shader, fragment_shader))
+    , texture_program([](GLuint const  texture_vertex_shader, GLuint const  texture_fragment_shader) -> GLuint {
+            GLuint const  texture_program = glCreateProgram();
+            assert(glGetError() == 0U && texture_program != 0);
+            glAttachShader(texture_program, texture_vertex_shader);
+            assert(glGetError() == 0U);
+            glAttachShader(texture_program, texture_fragment_shader);
+            assert(glGetError() == 0U);
+            glLinkProgram(texture_program);
+            assert(glGetError() == 0U);
+            glDetachShader(texture_program, texture_vertex_shader);
+            assert(glGetError() == 0U);
+            glDetachShader(texture_program, texture_fragment_shader);
+            assert(glGetError() == 0U);
+            return texture_program;
+    }(texture_vertex_shader, texture_fragment_shader))
+    , textureWin(load_texture(lecture_folder_path / "data" / "textures" / "you_win.png"))
+    , textureLoss(load_texture(lecture_folder_path / "data" / "textures" / "game_over.png"))
+    , texturePause(load_texture(lecture_folder_path / "data" / "textures" / "pause.png"))
+    , texture_vertex_array([]() -> GLuint {
+            GLuint vertex_array;
+            glGenVertexArrays(1, &vertex_array);
+            glBindVertexArray(vertex_array);
+            return vertex_array;
+    }())
+    , texture_vertex_buffer([]() -> GLuint {
+            struct Vertex { float x, y, z, u, v; };
+            std::vector<Vertex> const vertices{
+                { -0.5f, -0.125f, 0.0f,       0.0f, 0.0f },
+                {  0.5f, -0.125f, 0.0f,       1.0f, 0.0f },
+                {  0.5f,  0.125f, 0.0f,       1.0f, 1.0f },
+                { -0.5f,  0.125f, 0.0f,       0.0f, 1.0f },
+            };
+            GLuint vertex_buffer;
+            glGenBuffers(1, &vertex_buffer);
+            assert(glGetError() == 0U);
+            glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+            assert(glGetError() == 0U);
+            glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), &vertices.front(), GL_STATIC_DRAW);
+            assert(glGetError() == 0U);
+            glEnableVertexAttribArray(0);
+            assert(glGetError() == 0U);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), nullptr);
+            assert(glGetError() == 0U);
+            glEnableVertexAttribArray(1);
+            assert(glGetError() == 0U);
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(3 * sizeof(float)));
+            assert(glGetError() == 0U);
+            return vertex_buffer;
+    }())
+    , texture_index_buffer([]() -> GLuint {
+            std::vector<GLuint> const indices{ 0U, 1U, 2U, 0U, 2U, 3U };
+            GLuint index_buffer;
+            glGenBuffers(1, &index_buffer);
+            assert(glGetError() == 0U);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
+            assert(glGetError() == 0U);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), &indices.front(), GL_STATIC_DRAW);
+            assert(glGetError() == 0U);
+            return index_buffer;
+    }())
 {
     glViewport(0, 0, width, height);
     glEnable(GL_BLEND);
@@ -90,11 +151,20 @@ Application::Application(int initial_width, int initial_height, std::vector<std:
 
 Application::~Application()
 {
-    glDeleteVertexArrays(1U, &vertex_arrays);
-    glDeleteTextures(1, &texture);
+    glDeleteVertexArrays(1U, &vertex_array);
+    glDeleteTextures(1, &textureWin);
+    glDeleteTextures(1, &textureLoss);
+    glDeleteTextures(1, &texturePause);
+
     glDeleteProgram(shader_program);
     glDeleteShader(fragment_shader);
     glDeleteShader(vertex_shader);
+    
+    glDeleteProgram(texture_program);
+    glDeleteShader(texture_fragment_shader);
+    glDeleteShader(texture_vertex_shader);
+    
+    
     for (int i = 0; i < shapes.size(); i++) {
         GLuint array = shapes[i].GetVertexArray();
         glDeleteVertexArrays(1U, &array);
@@ -105,15 +175,37 @@ Application::~Application()
 // Methods
 // ----------------------------------------------------------------------------
 
+void Application::CheckWinLossConditions() {
+    // Win Condition
+    if (bricksLeft <= 0) {
+        isGameWon = true;
+    }
+	// Loss Condition
+    else if (playerLives <= 0)
+    {
+        isGameOver = true;
+    }
+    else
+    {
+        return;
+    }
+    // Stop Rendering ball
+    shapes[ballShapesVectorIndex].SetDestroyed(true);
+    isBallInGame = false;
+}
+
 void Application::update(float delta) {
     auto toRadians = [](float degrees) { return degrees * 3.14159265358979323846f / 180.0f; };
     
+	// Win/Lose Condition
+    CheckWinLossConditions();
+	if (isGameWon || isGameOver) return;
+    
     // Movement left
     if (left) {
-        for (int i = 0; i < paddles.size(  ); ++i) {
+        for (int i = 0; i < paddles.size(); ++i) {
             Shape* p = paddles[i];
 			Matrix4x4 model = p->GetModelMatrix();
-            //float paddleSpeed = toRadians(90) * delta * 0.0006;
             float speed = paddleSpeed/(toRadians(90) * delta);
             model = model * Matrix4x4(1.0).Rotate(toRadians(90) * delta * speed, Vector4D(0, 1, 0, 0));
 			p->SetModelMatrix(model);
@@ -156,18 +248,23 @@ void Application::update(float delta) {
 
         BroadPhaseDetection(shapes[ballShapesVectorIndex]);
         
-        // Handles the colission cooldown period for each brick after a collision.
-        int i = 0;
-        while(i < bricksPerStory) {
-            groundLevelBricks[i]->Update(delta);
-            i++;
-        }
-        i = 0;
-        while (i < paddles.size())
-        {
-            paddles[i]->Update(delta);
-            i++;
-        }
+        // Handles the colission cooldown period for each brick/paddle after a collision.
+        ResetCollisionCooldowns(delta);
+    }
+}
+
+void Application::ResetCollisionCooldowns(float delta)
+{
+    int i = 0;
+    while (i < bricksPerStory) {
+        groundLevelBricks[i]->Update(delta);
+        i++;
+    }
+    i = 0;
+    while (i < paddles.size())
+    {
+        paddles[i]->Update(delta);
+        i++;
     }
 }
 
@@ -182,6 +279,7 @@ void Application::BroadPhaseDetection(Shape& ball) {
     if (distanceFromCenter > (groundDiameter * 0.5f))
     {
         isBallInGame = false;
+        playerLives--;
     }
     // Potential Collision with bricks
     else if (ballRadiusMinus <= (brickOuterRadius) && ballRadiusPlus >= (brickInnerRadius))
@@ -235,7 +333,9 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
     {
         Vector4D collisionNormal = CalculateCollisionNormal(ballPosition, Vector4D(brickPos.x, ballPosition.y, brickPos.z));
         ReflectBall(ball, collisionNormal, ballSpeed);
-        brick->DestroyBrick();
+        if (brick->DestroyBrick()) {
+            bricksLeft--;
+        }
         return true;
     }
     
@@ -251,8 +351,7 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
         Vector4D closestPointOnTheBrickSide = ClosestPointOnTheLine(innerBrickRadiusStartVertex, outerBrickRadiusStartVertex, ballPosXY);
         newDirection = (ballPosXY - closestPointOnTheBrickSide).UnitVector();
         if (sqrt(pow(ballPosXY.x - closestPointOnTheBrickSide.x, 2) + pow(ballPosXY.z - closestPointOnTheBrickSide.z, 2)) > ballRadius) {
-            int a = sqrt(pow(ballPosXY.x - closestPointOnTheBrickSide.x, 2) + pow(ballPosXY.z - closestPointOnTheBrickSide.z, 2));
-            int b = 442;
+            ;
             //return false;
         }
         /*if (Vector4D::Equals(innerBrickRadiusStartVertex, closestPointOnTheBrickSide, 3)) {
@@ -262,7 +361,9 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
         
         SetDirection(ball, newDirection, ballSpeed);
         
-        brick->DestroyBrick();
+        if (brick->DestroyBrick()) {
+            bricksLeft--;
+        }
         return true;
     }
 
@@ -277,8 +378,7 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
         Vector4D closestPointOnTheBrickSide = ClosestPointOnTheLine(innerBrickRadiusStartVertex, outerBrickRadiusStartVertex, ballPosXY);
         newDirection = (ballPosXY - closestPointOnTheBrickSide).UnitVector();
         if (sqrt(pow(ballPosXY.x - closestPointOnTheBrickSide.x, 2) + pow(ballPosXY.z - closestPointOnTheBrickSide.z, 2)) > ballRadius) {
-            int a = sqrt(pow(ballPosXY.x - closestPointOnTheBrickSide.x, 2) + pow(ballPosXY.z - closestPointOnTheBrickSide.z, 2));
-            int b = 442;
+            ;
             //return false;
         }
         /*if (Vector4D::Equals(innerBrickRadiusStartVertex, closestPointOnTheBrickSide, 3)) {
@@ -288,7 +388,9 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
 
         SetDirection(ball, newDirection, ballSpeed);
 
-        brick->DestroyBrick();
+        if (brick->DestroyBrick()) {
+            bricksLeft--;
+        }
         return true;
     }
 
@@ -298,7 +400,9 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
     {
         Vector4D collisionNormal = CalculateCollisionNormal(ballPosition, Vector4D(brickPos.x, ballPosition.y, brickPos.z));
         ReflectBall(ball, collisionNormal, ballSpeed);
-        brick->DestroyBrick();
+        if (brick->DestroyBrick()) {
+            bricksLeft--;
+        }
         return true;
     }
     return false;
@@ -507,7 +611,9 @@ void Application::BallPhysicsUpdate(float delta, Shape& shape)
 {   
     // Update velocity based on force
     //shape.velocity = shape.velocity + (shape.force * delta * 0.001f);
-    
+    if (isPaused) {
+        return;
+    }
     // Update position
     Vector4D newPosition = shape.position + (shape.velocity * delta);
 	shape.SetPosition(newPosition);
@@ -524,12 +630,17 @@ void Application::SetDirection(Shape& shape, Vector4D newDirection, float speed)
 }
 
 void Application::startGame() {
+    // Reset variables
+    ball = nullptr;
+	paddles = std::vector<Shape*>();
+	groundLevelBricks = std::vector<Shape*>();
+    shapes.clear();
+    shapes.reserve(bricksPerStory*numberOfStories + paddleCount + 2);
+
     orthographicProj = false;
     float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
     cam.setprojectionMatrixToPerspective(45.0f, aspectRatio, 0.1f, 100.0f);
-
-    shapes.clear();
-    shapes.reserve(bricksPerStory*numberOfStories + paddleCount + 2);
+    
     Matrix4x4 model = Matrix4x4(1.0f);
 
     /*** SHAPES ***/
@@ -732,7 +843,30 @@ void Application::render() {
     }
 }
 
-void Application::render_ui() {}
+void Application::render_ui() {
+	if (isPaused){
+        renderTexture(texturePause);
+    }
+    if (isGameWon) {
+        renderTexture(textureWin);
+    }
+	if (isGameOver){
+        renderTexture(textureLoss);
+    }
+}
+
+void Application::renderTexture(GLuint texture) {
+    glUseProgram(texture_program);
+    assert(glGetError() == 0U);
+    glBindVertexArray(texture_vertex_array);
+    assert(glGetError() == 0U);
+    glActiveTexture(GL_TEXTURE0);
+    assert(glGetError() == 0U);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    assert(glGetError() == 0U);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+    assert(glGetError() == 0U);
+}
 
 void Application::on_resize(int width, int height) {
     // Calls the default implementation to set the class variables.
@@ -763,25 +897,44 @@ void Application::on_key_pressed(int key, int scancode, int action, int mods) {
     
     // KEY PRESS
     if (action == GLFW_PRESS) {
+		if (isGameOver || isGameWon) {
+            isGameOver = false;
+            isGameWon = false;
+            isPaused = false;
+			playerLives = 3;
+            paddleSpeed = 0.015f;
+            bricksLeft = bricksPerStory * numberOfStories;
+            startGame();
+			return;
+		}
         switch (key) {
-            case GLFW_KEY_2: {
-                orthographicProj = true;
-                cam.setprojectionMatrixToOrthographic(-scale, scale, -scale * aspectRatio, scale * aspectRatio, -10.0f, 10.0f);
-                break;
-            }
-            case GLFW_KEY_1:
-                orthographicProj = false;
-                cam.setprojectionMatrixToPerspective(45.0f, aspectRatio, 0.1f, 100.0f);
-                break;
-            case GLFW_KEY_LEFT:
+        case GLFW_KEY_2:
+            orthographicProj = true;
+            cam.setprojectionMatrixToOrthographic(-scale, scale, -scale * aspectRatio, scale * aspectRatio, -10.0f, 10.0f);
+            break;
+
+        case GLFW_KEY_1:
+            orthographicProj = false;
+            cam.setprojectionMatrixToPerspective(45.0f, aspectRatio, 0.1f, 100.0f);
+            break;
+        case GLFW_KEY_LEFT:
+            if (!isGameOver && !isGameWon) {
                 left = true;
-                break;
-            case GLFW_KEY_RIGHT:
+            }
+            break;
+        case GLFW_KEY_RIGHT:
+            if (!isGameOver && !isGameWon) {
                 right = true;
-                break;
-			case GLFW_KEY_SPACE:
-				isBallInGame = true;
-				break;
+            }
+            break;
+        case GLFW_KEY_SPACE:
+            isBallInGame = true;
+            break;
+        case GLFW_KEY_P:
+            if (!isGameOver && !isGameWon) {
+                isPaused = !isPaused;
+            }
+            break;
         }
     }
 }

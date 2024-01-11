@@ -52,11 +52,35 @@ private:
     GLuint vertex_shader;
     GLuint fragment_shader;
     GLuint shader_program;
-    GLuint vertex_arrays;
+    
+	GLuint texture_vertex_shader;
+	GLuint texture_fragment_shader;
+    GLuint texture_program;
+    
+    GLuint vertex_array;
     GLuint vertex_buffer;
     GLuint index_buffer;
-    GLuint texture;
+
+    // Texture program
+    GLuint texture_vertex_array;
+    GLuint texture_vertex_buffer;
+    GLuint texture_index_buffer;
+    
+
+    
     Camera cam;
+
+    // Control
+	bool isPaused = false;
+	bool isGameOver = false;
+    bool isGameWon = false;
+    int playerLives = 3;
+	int bricksLeft = bricksPerStory * numberOfStories;
+
+    // Textures
+    GLuint textureWin;
+    GLuint textureLoss;
+    GLuint texturePause;
 
     bool isBallInGame = false;
     const float ballRadius = 0.5f;
@@ -132,7 +156,9 @@ public:
 
     std::tuple<float, float, float> NormalizeCollisionAngles(float ballAngle, float obstacleStartAngle, float obstacleEndAngle);
 	Vector4D ClosestPointOnTheLine(Vector4D lineStart, Vector4D lineEnd, Vector4D point);
-
+    void CheckWinLossConditions();
+	void ResetCollisionCooldowns(float delta);
+    
     std::vector<Vector4D> colors = {
         Vector4D(1, 1, 0, 1), // Yellow
         Vector4D(0, 1, 0, 1), // Green
@@ -140,6 +166,6 @@ public:
         Vector4D(1, 0, 0, 1), // Red
         Vector4D(0, 0, 0, 1)  // Black
     };
-
+    void renderTexture(GLuint texture);
 };
 

@@ -360,6 +360,12 @@ bool Shape::IsDestroyed() const
 	return destroyed;
 }
 
+bool Shape::SetDestroyed(bool destroyed)
+{
+	this->destroyed = destroyed;
+	return destroyed;
+}
+
 bool Shape::IsColumnDestroyed()
 {
     while (next != nullptr)
@@ -372,11 +378,11 @@ bool Shape::IsColumnDestroyed()
     return true;
 }
 
-void Shape::DestroyBrick() { 
-    RecursiveBrickFall(GetModelMatrix(), true);
+bool Shape::DestroyBrick() { 
+    return(RecursiveBrickFall(GetModelMatrix(), true));
 }
 
-void Shape::RecursiveBrickFall(Matrix4x4 prevBrickModelMatrix, bool destroyThisBrick)
+bool Shape::RecursiveBrickFall(Matrix4x4 prevBrickModelMatrix, bool destroyThisBrick)
 {
     // If we are to destroy this brick and it's not already destroyed, do so.
     if (destroyThisBrick && !destroyed)
@@ -393,6 +399,7 @@ void Shape::RecursiveBrickFall(Matrix4x4 prevBrickModelMatrix, bool destroyThisB
     if (!destroyed) {
         SetModelMatrix(prevBrickModelMatrix);
     }
+    return destroyed;
 }
 
 
