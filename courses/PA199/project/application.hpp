@@ -14,7 +14,7 @@
 #include "Engine/Vector4D/Vector4D.hpp"
 #include "Engine/Matrix4x4/Matrix4x4.hpp"
 #include "Engine/PolarCoords/PolarCoords.hpp"
-//#include "Engine/Vertex/Vertex.hpp"
+#include <tuple>
 
 
 class Application : public IApplication {
@@ -65,7 +65,7 @@ private:
     float ballSpeed = 0.01f; // Should be between 0.01f and 0.02f
 	float paddleSpeed = 0.015f;
 
-    float brickCooldownDuration = 100.0f; // time to wait
+    float brickCooldownDuration = 150.0f; // time to wait
     float paddleCooldownDuration = 1000.0f; // time to wait
 
 
@@ -118,7 +118,7 @@ public:
     void BroadPhaseDetection(Shape& ball);
 
     void CollisionWithBricks(Shape& ball);
-    bool ProcessBrickCollision(Shape& ball, Shape* brick, float ballAngle, float distanceFromCenter);
+    bool ProcessBrickCollision(Shape& ball, Shape* brick, float ballAngle, float distanceFromCenter, int colId);
     Vector4D CalculateCollisionNormal(const Vector4D& ballPosition, const Vector4D& paddlePosition);
     Vector4D Reflect(const Vector4D& direction, const Vector4D& normal);
     void ReflectBall(Shape& ball, const Vector4D& normal, float speed);
@@ -130,7 +130,7 @@ public:
     bool IsBallWithinObstacleRange(float ballAngle, float obstacleStartAngle, float obstacleEndAngle);
     void SetDirection(Shape& shape, Vector4D newDirection, float speed);
 
-    void NormalizeCollisionAngles(float& ballAngle, float& obstacleStartAngle, float& obstacleEndAngle);
+    std::tuple<float, float, float> NormalizeCollisionAngles(float ballAngle, float obstacleStartAngle, float obstacleEndAngle);
 	Vector4D ClosestPointOnTheLine(Vector4D lineStart, Vector4D lineEnd, Vector4D point);
 
     std::vector<Vector4D> colors = {
