@@ -74,8 +74,7 @@ private:
     bool isPaused = false;
     bool isGameOver = false;
     bool isGameWon = false;
-    int playerLives = 30;
-    int bricksLeft = bricksPerStory * numberOfStories;
+    int playerLives = 3;
     bool orthographicProj = false;
     bool left = false, right = false;
     bool isBallInGame = false;
@@ -152,6 +151,7 @@ public:
     std::tuple<float, float, float> NormalizeCollisionAngles(float ballAngle, float obstacleStartAngle, float obstacleEndAngle);
     Vector4D ClosestPointOnTheLine(Vector4D lineStart, Vector4D lineEnd, Vector4D point);
     void CheckWinLossConditions();
+    bool CheckGameWon();
     void ResetCollisionCooldowns(float delta);
     Vector4D AdjustDeflectionDirection(Shape& ball, Vector4D realDirection, float similarityThreshold, float blendFactor);
 

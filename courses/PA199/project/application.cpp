@@ -175,20 +175,22 @@ Application::~Application()
 // Methods
 // ----------------------------------------------------------------------------
 
+bool Application::CheckGameWon() {
+    for (int i = 0; i < bricksPerStory; i++) {
+        if (!groundLevelBricks[i]->IsColumnDestroyed()) {
+            return false; // Game continues if any column is not fully destroyed
+        }
+    }
+    return true; // All columns are destroyed, player wins
+}
+
 void Application::CheckWinLossConditions() {
     // Win Condition
-   /*if (bricksLeft <= 0) {
-        isGameWon = true;
-    }*/
-    /*for (int i = 0; i <= bricksPerStory; i++) {
-		if (!groundLevelBricks[i]->IsColumnDestroyed()) {
-            break;
-        }else{
-            isGameWon = true;
-        }
-    }*/
-	// Loss Condition
-    if (playerLives <= 0)
+	if (CheckGameWon()) {
+		isGameWon = true;
+	}
+    // Loss Condition
+    else if (playerLives <= 0)
     {
         isGameOver = true;
     }
@@ -339,7 +341,6 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
         Vector4D collisionNormal = CalculateCollisionNormal(ballPosition, Vector4D(brickPos.x, ballPosition.y, brickPos.z));
         ReflectBall(ball, collisionNormal, ballSpeed);
         if (brick->DestroyBrick()) {
-            bricksLeft--;
         }
         return true;
     }
@@ -367,7 +368,6 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
         SetDirection(ball, newDirection, ballSpeed);
 
         if (brick->DestroyBrick()) {
-            bricksLeft--;
         }
         return true;
     }
@@ -394,7 +394,6 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
         SetDirection(ball, newDirection, ballSpeed);
 
         if (brick->DestroyBrick()) {
-            bricksLeft--;
         }
         return true;
     }
@@ -406,7 +405,6 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
         Vector4D collisionNormal = CalculateCollisionNormal(ballPosition, Vector4D(brickPos.x, ballPosition.y, brickPos.z));
         ReflectBall(ball, collisionNormal, ballSpeed);
         if (brick->DestroyBrick()) {
-            bricksLeft--;
         }
         return true;
     }
@@ -619,19 +617,6 @@ void Application::CollisionWithBricks(Shape& ball)
     Vector4D ballPos = ball.position;
     float ballDistanceFromCenter = sqrt(ballPos.x * ballPos.x + ballPos.z * ballPos.z);
 	PolarCoords ballPolarCoords = PolarCoords::Cartesian2PC(ballPos.x, ballPos.z);
-
-    /*for (int b = 0; b < groundLevelBricks.size(); b++)
-    {
-        if (!groundLevelBricks[b]->IsColumnDestroyed() && !groundLevelBricks[b]->isOnCooldown)
-        {
-            bool collided = ProcessBrickCollision(ball, groundLevelBricks[b], ballPolarCoords.GetAngle(), ballDistanceFromCenter, true);
-            // Colission found, stop 
-            if (collided) {
-                groundLevelBricks[b]->StartCooldown(brickCooldownDuration);
-                return;
-            }
-        }
-    }*/
 
     for (int b = 0; b < groundLevelBricks.size(); b++)
     {
@@ -928,7 +913,6 @@ void Application::resetGame() {
     isPaused = false;
     playerLives = 3;
     paddleSpeed = 0.015f;
-    bricksLeft = bricksPerStory * numberOfStories;
     startGame();
 }
 

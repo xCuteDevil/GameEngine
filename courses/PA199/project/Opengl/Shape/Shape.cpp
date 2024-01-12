@@ -368,12 +368,12 @@ bool Shape::SetDestroyed(bool destroyed)
 
 bool Shape::IsColumnDestroyed()
 {
-    while (next != nullptr)
-    {
-        if (!next->destroyed) {
+    Shape* current = this; // Use a temporary pointer
+    while (current != nullptr) {
+        if (!current->destroyed) {
             return false;
         }
-        next = next->next;
+        current = current->next; // Move to the next brick without altering the list structure
     }
     return true;
 }
