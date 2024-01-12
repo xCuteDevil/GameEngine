@@ -207,8 +207,10 @@ void Application::MovePaddle(Shape* paddle, bool moveLeft, float delta) {
     auto toRadians = [](float degrees) { return degrees * 3.14159265358979323846f / 180.0f; };
     Matrix4x4 model = paddle->GetModelMatrix();
     float rotationDirection = moveLeft ? 1.0f : -1.0f; // Positive for left, negative for right
-    float speed = paddleSpeed / (toRadians(90) * delta);
-    model = model * Matrix4x4(1.0).Rotate(toRadians(90) * delta * speed * rotationDirection, Vector4D(0, 1, 0, 0));
+
+    // Assume paddleSpeed is in degrees per second
+    float rotationAngle = paddleSpeed * delta; // Rotation angle per frame
+    model = model * Matrix4x4(1.0).Rotate(toRadians(rotationAngle) * rotationDirection, Vector4D(0, 1, 0, 0));
     paddle->SetModelMatrix(model);
 }
 
@@ -219,12 +221,12 @@ void Application::update(float delta) {
 	if (isGameWon || isGameOver) return;
 
     // Movement left and right
-    if (left) {
+    if (left && !isPaused) {
         for (Shape* p : paddles) {
             MovePaddle(p, true, delta);
         }
     }
-    else if (right) {
+    else if (right && !isPaused) {
         for (Shape* p : paddles) {
             MovePaddle(p, false, delta);
         }
@@ -253,7 +255,43 @@ void Application::update(float delta) {
         
         BallPhysicsUpdate(delta, shapes[ballShapesVectorIndex]);
 
+        PowerUpsPhysicsUpdate(delta);
+
         BroadPhaseDetection(shapes[ballShapesVectorIndex]);
+
+        for (int i = 0; i < powerUps.size(); i++) {
+            if (!powerUps[i].IsDestroyed())
+            {
+                bool didCatch = BroadPhasePowerUpDetection(powerUps[i]);
+                if (didCatch) {
+                    
+                    
+                    // GREEN - ENLARGE PADDLES
+                    if (Vector4D::Equals(powerUps[i].GetColour(), Vector4D(0, 1, 0, 1), 3))
+                    {
+                        if (paddleCount * (paddleLength * 1.05f) < 360.0f)
+                        {
+                            paddleLength = paddleLength * 1.05f;
+                            for (Shape* paddle : paddles) {
+                            }
+                            RegeneratePaddles();
+                        }
+                    }
+                    // RED - LESSEN PADDLES
+                    else if (Vector4D::Equals(powerUps[i].GetColour(), Vector4D(1, 0, 0, 1), 3))
+                    {
+                        if (paddleCount * (paddleLength * 0.95f) > 100.0f)
+                        {
+                            paddleLength = paddleLength * 0.95f;
+                            for (Shape* paddle : paddles) {
+                            }
+                            RegeneratePaddles();
+                        }
+                    }
+                    powerUps.erase(powerUps.begin() + i);
+                }
+            }
+        }
         
         // Handles the colission cooldown period for each brick/paddle after a collision.
         ResetCollisionCooldowns(delta);
@@ -274,6 +312,33 @@ void Application::ResetCollisionCooldowns(float delta)
         i++;
     }
 }
+bool Application::BroadPhasePowerUpDetection(Shape& powerUp) {
+    PolarCoords pUpCoords = PolarCoords::Cartesian2PC(powerUp.position.x, powerUp.position.z);
+    float pUpAngle = pUpCoords.GetAngle();
+    float distanceFromCenter = pUpCoords.GetRadius();
+    float pUpRadiusPlus = distanceFromCenter + powerUpRadius;
+    float pUpRadiusMinus = distanceFromCenter - powerUpRadius;
+        
+    if (pUpRadiusMinus < paddleOuterRadius && pUpRadiusPlus > paddleInnerRadius)
+    {
+        Vector4D ballPos = powerUp.position;
+        PolarCoords ballPolarCoords = PolarCoords::Cartesian2PC(ballPos.x, ballPos.z);
+
+        for (int p = 0; p < paddles.size(); p++)
+        {
+            if (!paddles[p]->isOnCooldown)
+            {
+                bool collided = ProcessPaddleCollision(powerUp, paddles[p], ballPolarCoords.GetAngle(), ballPolarCoords.GetRadius());
+                // Colission found, stop 
+                if (collided) {
+                    powerUp.SetDestroyed(true);
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
 
 void Application::BroadPhaseDetection(Shape& ball) {
 
@@ -287,6 +352,7 @@ void Application::BroadPhaseDetection(Shape& ball) {
     {
         isBallInGame = false;
         playerLives--;
+        powerUps.clear();
     }
     // Potential Collision with bricks
     else if (ballRadiusMinus <= (brickOuterRadius) && ballRadiusPlus >= (brickInnerRadius))
@@ -298,6 +364,32 @@ void Application::BroadPhaseDetection(Shape& ball) {
     else if (ballRadiusMinus < paddleOuterRadius && ballRadiusPlus > paddleInnerRadius)
     {
         CollisionWithPaddles(ball);
+    }
+}
+
+void Application::GeneratePowerUp(Vector4D colour, Vector4D position) {
+    // Create the power-up
+    Matrix4x4 model = Matrix4x4(1.0f);
+    Sphere b(position, powerUpRadius, powerUpStacks, powerUpSectors, colour);
+    b.SetModelMatrix(model);
+    b.SetPosition(position);
+
+    // Calculate and set initial velocity
+    Vector4D direction = position;
+    direction = direction.UnitVector();
+    b.velocity = direction * powerUpSpeed;
+    b.SetDestroyed(true); // stands for do not render
+    powerUps.push_back(b);
+}
+
+Shape* Application::GetBrickToBeDestroyed(int columnID) {
+    Shape* b = groundLevelBricks[columnID];
+    while (b != nullptr) {
+        if (!b->IsDestroyed())
+        {
+            return b;
+        }
+        b = b->next;
     }
 }
 
@@ -340,8 +432,17 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
     {
         Vector4D collisionNormal = CalculateCollisionNormal(ballPosition, Vector4D(brickPos.x, ballPosition.y, brickPos.z));
         ReflectBall(ball, collisionNormal, ballSpeed);
-        if (brick->DestroyBrick()) {
+        
+        Shape *b = GetBrickToBeDestroyed(colId);
+        brick->DestroyBrick();
+        if (Vector4D::Equals (b->GetColour(), Vector4D(1, 0, 0, 1), 3)) {
+            GeneratePowerUp(Vector4D(1, 0, 0, 1), brick->CalculatePosition());
         }
+        else if (Vector4D::Equals(b->GetColour(), Vector4D(0, 1, 0, 1), 3)) {
+            GeneratePowerUp(Vector4D(0, 1, 0, 1), brick->CalculatePosition());
+        }
+        
+        
         return true;
     }
 
@@ -367,8 +468,15 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
 
         SetDirection(ball, newDirection, ballSpeed);
 
-        if (brick->DestroyBrick()) {
+        Shape* b = GetBrickToBeDestroyed(colId);
+        brick->DestroyBrick();
+        if (Vector4D::Equals(b->GetColour(), Vector4D(1, 0, 0, 1), 3)) {
+            GeneratePowerUp(Vector4D(1, 0, 0, 1), brick->CalculatePosition());
         }
+        else if (Vector4D::Equals(b->GetColour(), Vector4D(0, 1, 0, 1), 3)) {
+            GeneratePowerUp(Vector4D(0, 1, 0, 1), brick->CalculatePosition());
+        }
+        
         return true;
     }
 
@@ -393,8 +501,15 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
 
         SetDirection(ball, newDirection, ballSpeed);
 
-        if (brick->DestroyBrick()) {
+        Shape* b = GetBrickToBeDestroyed(colId);
+        brick->DestroyBrick();
+        if (Vector4D::Equals(b->GetColour(), Vector4D(1, 0, 0, 1), 3)) {
+            GeneratePowerUp(Vector4D(1, 0, 0, 1), brick->CalculatePosition());
         }
+        else if (Vector4D::Equals(b->GetColour(), Vector4D(0, 1, 0, 1), 3)) {
+            GeneratePowerUp(Vector4D(0, 1, 0, 1), brick->CalculatePosition());
+        }
+        
         return true;
     }
 
@@ -531,12 +646,12 @@ bool Application::ProcessPaddleCollision(Shape& ball, Shape* paddle, float ballA
         Vector4D innerPaddleRadiusStartVertex = outerPaddleRadiusStartVertex + directionToCenter * paddleWidth;
         Vector4D closestPointOnThePaddleSide = ClosestPointOnTheLine(innerPaddleRadiusStartVertex, outerPaddleRadiusStartVertex, ballPosXY);
         newDirection = (ballPosXY - closestPointOnThePaddleSide).UnitVector();
-        if (Vector4D::Equals(innerPaddleRadiusStartVertex,closestPointOnThePaddleSide,1)) {
+        /*if (Vector4D::Equals(innerPaddleRadiusStartVertex, closestPointOnThePaddleSide, 1)) {
             // Corner collision
             SetDirection(ball, newDirection, ballSpeed);
-        }
+        }*/
         // So that ball is faster than paddle if it goes along with it 
-        SetDirection(ball, newDirection, paddleSpeed);
+        SetDirection(ball, newDirection, ballSpeed*1.2f);
         return true;
     }
 
@@ -550,31 +665,17 @@ bool Application::ProcessPaddleCollision(Shape& ball, Shape* paddle, float ballA
         Vector4D outerPaddleRadiusStartVertex = innerPaddleRadiusStartVertex - directionToCenter * paddleWidth;
         Vector4D closestPointOnThePaddleSide = ClosestPointOnTheLine(outerPaddleRadiusStartVertex, innerPaddleRadiusStartVertex, ballPosXY);
         newDirection = (ballPosXY - closestPointOnThePaddleSide).UnitVector();
-        if (Vector4D::Equals(innerPaddleRadiusStartVertex, closestPointOnThePaddleSide, 1)) {
+        /*if (Vector4D::Equals(innerPaddleRadiusStartVertex, closestPointOnThePaddleSide, 1)) {
             // Corner collision
             SetDirection(ball, newDirection, ballSpeed);
-        }
+        }*/
         
         // So that ball is faster than paddle if it goes along with it 
-        SetDirection(ball, newDirection, paddleSpeed);
+        SetDirection(ball, newDirection, ballSpeed*1.2f);
         return true;
     }
     return false;
 }
-
-/*Vector4D Application::AdjustDeflectionDirectionb(Shape& ball, Vector4D realDirection, float similarityThreshold, float blendFactor) {
-
-    // Calculate the dot product to measure similarity
-    float similarity = realDirection.UnitVector().DotProduct(ball.velocity.UnitVector());
-
-    if (similarity > similarityThreshold && similarity > 0) {
-        Vector4D ballPositionNormalized = Vector4D(ball.position.x, 0, ball.position.z);
-        ballPositionNormalized = Vector4D(-ball.position.x, 0, -ball.position.z).UnitVector();
-
-        realDirection = realDirection * (1.0f - blendFactor) + ballPositionNormalized * blendFactor;
-    }
-    return realDirection.UnitVector();
-}*/
 
 Vector4D Application::AdjustDeflectionDirection(Shape& ball, Vector4D realDirection, float similarityThreshold, float blendFactor) {
 
@@ -632,6 +733,30 @@ void Application::CollisionWithBricks(Shape& ball)
     }
 }
 
+void Application::PowerUpsPhysicsUpdate(float delta) {
+    if (isPaused) {
+        return;
+    }
+
+    for (int i = 0; i < powerUps.size(); i++) {
+        float radius = PolarCoords::Cartesian2PC(powerUps[i].position.x, powerUps[i].position.z).GetRadius();
+        if (radius < (groundDiameter*0.5f) && radius > brickInnerRadius) {
+            powerUps[i].SetDestroyed(false); // stands for do render
+        }
+        else {
+            powerUps[i].SetDestroyed(true); // stands for do not render
+        }
+        // Update position based on current velocity
+        Vector4D newPosition = powerUps[i].position + (powerUps[i].velocity * delta);
+        powerUps[i].SetPosition(newPosition);
+
+        // Update model matrix
+        Matrix4x4 model = powerUps[i].GetModelMatrix();
+        model = Matrix4x4(1.0f).Translate(newPosition.x, ballRadius, newPosition.z);
+        powerUps[i].SetModelMatrix(model);
+    }
+}
+
 void Application::BallPhysicsUpdate(float delta, Shape& shape)
 {   
     // Update velocity based on force
@@ -639,6 +764,7 @@ void Application::BallPhysicsUpdate(float delta, Shape& shape)
     if (isPaused) {
         return;
     }
+    
     // Update position
     Vector4D newPosition = shape.position + (shape.velocity * delta);
 	shape.SetPosition(newPosition);
@@ -659,9 +785,11 @@ void Application::startGame() {
     ball = nullptr;
 	paddles = std::vector<Shape*>();
 	groundLevelBricks = std::vector<Shape*>();
+    powerUps = std::vector<Shape>();
     shapes.clear();
     shapes.reserve(bricksPerStory*numberOfStories + paddleCount + 2);
-
+    paddleLength = initialPaddleLength;
+        
     orthographicProj = false;
     float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
     cam.setprojectionMatrixToPerspective(45.0f, aspectRatio, 0.1f, 100.0f);
@@ -674,6 +802,9 @@ void Application::startGame() {
     
     // Conversion helper
     auto toRadians = [](float degrees) { return degrees * 3.14159265358979323846f / 180.0f; };
+    
+    powerUps.clear();
+    powerUps.reserve(bricksPerStory*numberOfStories);
     
     // Initialize bricks to hold all bricks in all stories
     groundLevelBricks.clear();
@@ -728,7 +859,7 @@ void Application::startGame() {
     model = Matrix4x4(1.0);
     model = model.Rotate(-M_PI / 2, Vector4D(1, 0, 0, 0));
 
-    Circle ground = *new Circle(Vector4D(0, 0, 0, 1), groundDiameter*0.5f, 360, Vector4D(0, 0, 1, 1));
+    Circle ground = *new Circle(Vector4D(0, 0, 0, 1), groundDiameter*0.5f, groundDetail, Vector4D(0, 0, 1, 1));
     ground.SetTexture(load_texture(lecture_folder_path / "data" / "textures" / "ground.png"));
 
     ground.SetModelMatrix(model);
@@ -737,7 +868,7 @@ void Application::startGame() {
     // Ball
     model = Matrix4x4(1.0).Translate(1, 0, 1);
     
-    Sphere b = *new Sphere(Vector4D(0, 0, 0, 1), ballRadius, 16, 16, Vector4D(0.5, 0.5, 0.5, 1));
+    Sphere b = *new Sphere(Vector4D(0, 0, 0, 1), ballRadius, ballStacks, ballSectors, Vector4D(0.5, 0.5, 0.5, 1));
 
     b.SetModelMatrix(model);
 
@@ -754,13 +885,50 @@ void Application::startGame() {
         float z = paddleInnerRadius * sin(angleRadians);
 
         // Create paddle and position it on the XZ plane at the calculated position
-        Paddle paddle(Vector4D(x, 0.0f, z, 1), paddleInnerRadius, paddleWidth, paddleHeight, toRadians(60.0f), paddleDetail, Vector4D(1.0f, 0.0f, 0.0f, 0.0f));
+        Paddle paddle(Vector4D(x, 0.0f, z, 1), paddleInnerRadius, paddleWidth, paddleHeight, toRadians(paddleLength), paddleDetail, Vector4D(1.0f, 0.0f, 0.0f, 0.0f));
 
         // Rotate paddle around the global Y-axis to face outward from the center
         Matrix4x4 model = Matrix4x4::Rotate(angleRadians, Vector4D(0, 1, 0, 0));
 
         // Apply the model matrix to the paddle
         paddle.SetModelMatrix(model);
+
+        // Add the paddle to the shapes and paddles vector
+        shapes.push_back(paddle);
+        paddles.push_back(&shapes.back());
+    }
+}
+
+void Application::RegeneratePaddles() {
+    if (shapes.size() < paddleCount) {
+        return;
+    }
+    
+    auto toRadians = [](float degrees) { return degrees * 3.14159265358979323846f / 180.0f; };
+    paddles.clear();
+    std::vector<Matrix4x4> paddleModelMatrices;
+    paddleModelMatrices.reserve(paddleCount);
+    paddleModelMatrices.push_back(shapes[shapes.size() - 1].GetModelMatrix());
+    paddleModelMatrices.push_back(shapes[shapes.size() - 2].GetModelMatrix());
+    paddleModelMatrices.push_back(shapes[shapes.size() - 3].GetModelMatrix());
+    shapes.erase(shapes.end() - paddleCount, shapes.end());
+    
+    for (int i = 0; i < paddleCount; ++i) {
+        float angleDegrees = i * (360.0f / paddleCount);
+        float angleRadians = toRadians(angleDegrees);
+
+        // Calculate the position on the XZ plane using polar coordinates
+        float x = paddleInnerRadius * cos(angleRadians);
+        float z = paddleInnerRadius * sin(angleRadians);
+
+        // Create paddle and position it on the XZ plane at the calculated position
+        Paddle paddle(Vector4D(x, 0.0f, z, 1), paddleInnerRadius, paddleWidth, paddleHeight, toRadians(paddleLength), paddleDetail, Vector4D(1.0f, 0.0f, 0.0f, 0.0f));
+
+        // Rotate paddle around the global Y-axis to face outward from the center
+        Matrix4x4 model = Matrix4x4::Rotate(angleRadians, Vector4D(0, 1, 0, 0));
+
+        // Apply the model matrix to the paddle
+        paddle.SetModelMatrix(paddleModelMatrices[i]);
 
         // Add the paddle to the shapes and paddles vector
         shapes.push_back(paddle);
@@ -775,7 +943,7 @@ void Application::render() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glUseProgram(shader_program);
-
+    
     GLint viewUniformLocation = glGetUniformLocation(shader_program, "view");
     GLint projectionUniformLocation = glGetUniformLocation(shader_program, "projection");
     GLint modelUniformLocation = glGetUniformLocation(shader_program, "model");
@@ -827,38 +995,45 @@ void Application::render() {
     assert(glGetError() == 0U);
     glUniformMatrix4fv(projectionUniformLocation, 1, GL_FALSE, projMatrix);
 
+    // RENDERING OBJECTS
+    RenderVectorOfObjects(shapes);
+    // RENDERING POWERUPS
+    RenderVectorOfObjects(powerUps);
+
+}
+
+void Application::RenderVectorOfObjects(std::vector<Shape> vectorOfObjects) {
     GLint useTextureLocation = glGetUniformLocation(shader_program, "useTexture");
     GLint solidColorLocation = glGetUniformLocation(shader_program, "solidColor");
+    GLint modelUniformLocation = glGetUniformLocation(shader_program, "model");
     
-    // RENDERING OBJECTS
-    for (int i = 0; i < shapes.size(); i++) {
-        if (shapes[i].IsDestroyed())
+    for (int i = 0; i < vectorOfObjects.size(); i++) {
+        if (vectorOfObjects[i].IsDestroyed())
         {
             continue;
         }
-
         glDisable(GL_DEPTH_TEST);
-        if (i > 0) {
+        if (i >= 0) {
             glEnable(GL_DEPTH_TEST);
         }
-        glBindVertexArray(shapes[i].GetVertexArray());
+        glBindVertexArray(vectorOfObjects[i].GetVertexArray());
         assert(glGetError() == 0U);
-		glBindBuffer(GL_ARRAY_BUFFER, shapes[i].GetVertexBuffer());
+        glBindBuffer(GL_ARRAY_BUFFER, vectorOfObjects[i].GetVertexBuffer());
         assert(glGetError() == 0U);
-        
-		if (shapes[i].GetTexture() != 0){
+
+        if (vectorOfObjects[i].GetTexture() != 0) {
             glUniform1i(useTextureLocation, 1);
-            glBindTexture(GL_TEXTURE_2D, shapes[i].GetTexture());
+            glBindTexture(GL_TEXTURE_2D, vectorOfObjects[i].GetTexture());
         }
-		else{
+        else {
             glUniform1i(useTextureLocation, 0);
-            Vector4D colour = shapes[i].GetColour();
+            Vector4D colour = vectorOfObjects[i].GetColour();
             glUniform4f(solidColorLocation, colour.x, colour.y, colour.z, colour.w);
         }
 
         assert(glGetError() == 0U);
-        Matrix4x4 model = shapes[i].GetModelMatrix();
-        
+        Matrix4x4 model = vectorOfObjects[i].GetModelMatrix();
+
         glUniformMatrix4fv(modelUniformLocation, 1, GL_FALSE, model.ToArray());
         assert(glGetError() == 0U);
 
@@ -866,7 +1041,7 @@ void Application::render() {
         glUniform3f(glGetUniformLocation(shader_program, "lightPos"), 0, 12, 10);
         glUniform3fv(glGetUniformLocation(shader_program, "viewPos"), 1, cam.position.ToArray());
 
-        glDrawElements(GL_TRIANGLES, shapes[i].GetIndices().size(), GL_UNSIGNED_INT, nullptr);
+        glDrawElements(GL_TRIANGLES, vectorOfObjects[i].GetIndices().size(), GL_UNSIGNED_INT, nullptr);
         assert(glGetError() == 0U);
     }
 }
@@ -912,7 +1087,7 @@ void Application::resetGame() {
     isGameWon = false;
     isPaused = false;
     playerLives = 3;
-    paddleSpeed = 0.015f;
+    paddleSpeed = initialPaddleSpeed;
     startGame();
 }
 

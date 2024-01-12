@@ -24,8 +24,8 @@ class Application : public IApplication {
 private:
     // Brick configuration
     const int bricksPerStory = 12;
-    const int numberOfStories = 5;
-    const float brickHeight = 1.0f;
+    const int numberOfStories = 2;
+    const float brickHeight = 0.9f;
     const float brickWidth = 1.5f;
     const int brickDetail = 5;
     const float brickInnerRadius = 2.5f;
@@ -37,19 +37,31 @@ private:
     const float paddleWidth = 1.0f;
     const float paddleHeight = 1.0f;
     const float paddleInnerRadius = 11.0f;
+    const float initialPaddleLength = 60.0f;
+	float paddleLength = initialPaddleLength; // 1 paddle covers 60 degrees of the radius (ballStartPosCoefOffset must be adjusted)
     float paddleOuterRadius = paddleInnerRadius + paddleWidth;
     const int paddleDetail = 36;
-    float paddleSpeed = 0.015f;
-    float paddleCooldownDuration = 200.0f; // time to wait
+    float initialPaddleSpeed = 0.05f;
+    float paddleSpeed = initialPaddleSpeed;
+    float paddleCooldownDuration = 30.0f; // time to wait
 
-    // Ball
+    // Ball configuration
     const float ballRadius = 0.5f;
     const float ballStartPosCoefOffset = 1.0f;
     const int ballShapesVectorIndex = numberOfStories * bricksPerStory + 1;
     float ballSpeed = 0.01f;
+    const int ballStacks = 16;
+    const int ballSectors = 16;
+
+    // Power-ups configuration
+    const float powerUpRadius = ballRadius*0.5f;
+    const int powerUpStacks = ballStacks*0.5f;
+    const int powerUpSectors = ballSectors*0.5f;
+    float powerUpSpeed = ballSpeed*0.8f;
     
     // Ground configuration
     const float groundDiameter = 28.0f;
+	const int groundDetail = 128;
 
     GLuint vertex_shader;
     GLuint fragment_shader;
@@ -74,7 +86,7 @@ private:
     bool isPaused = false;
     bool isGameOver = false;
     bool isGameWon = false;
-    int playerLives = 3;
+    int playerLives = 30;
     bool orthographicProj = false;
     bool left = false, right = false;
     bool isBallInGame = false;
@@ -92,6 +104,7 @@ private:
     std::vector<Shape*> paddles;
     Shape* ball = nullptr;
     std::vector<Shape*> groundLevelBricks;
+    std::vector<Shape> powerUps;
 
     // ----------------------------------------------------------------------------
     // Constructors & Destructors
@@ -131,6 +144,7 @@ public:
     void resetGame();
 
     void BallPhysicsUpdate(float delta, Shape& shape);
+    void PowerUpsPhysicsUpdate(float delta);
     void MovePaddle(Shape* paddle, bool moveLeft, float delta);
 
     void BroadPhaseDetection(Shape& ball);
@@ -154,6 +168,13 @@ public:
     bool CheckGameWon();
     void ResetCollisionCooldowns(float delta);
     Vector4D AdjustDeflectionDirection(Shape& ball, Vector4D realDirection, float similarityThreshold, float blendFactor);
+	void GeneratePowerUp(Vector4D colour, Vector4D position);
+    Shape* GetBrickToBeDestroyed(int columnID);
+    
+    bool BroadPhasePowerUpDetection(Shape& powerUp);
+    void RegeneratePaddles();
+
+    void RenderVectorOfObjects(std::vector<Shape> vectorOfObjects);
 
     std::vector<Vector4D> colors = {
         Vector4D(1, 1, 0, 1), // Yellow
