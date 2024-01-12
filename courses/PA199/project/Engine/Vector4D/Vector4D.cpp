@@ -101,6 +101,13 @@ Vector4D Vector4D::operator/(double scalar) const {
     return Vector4D(x / scalar, y / scalar, z / scalar, w / scalar);
 }
 
+bool Vector4D::operator<(const Vector4D& rhs) const {
+    if (x != rhs.x) return x < rhs.x;
+    if (y != rhs.y) return y < rhs.y;
+    if (z != rhs.z) return z < rhs.z;
+    return w < rhs.w;
+}
+
 float* Vector4D::ToArray() const {
     float* array = new float[4];
     array[0] = static_cast<float>(x);

@@ -288,6 +288,22 @@ void Application::update(float delta) {
                             RegeneratePaddles();
                         }
                     }
+                    // YELLOW - MAKE BALL FASTER
+                    else if (Vector4D::Equals(powerUps[i].GetColour(), Vector4D(1, 1, 0, 1), 3))
+                    {
+                        if (speedModifier * 1.0f < 1.5f)
+                        {
+                            speedModifier = speedModifier * 1.05f;
+                        }
+                    }
+                    // BLUE - MAKE BALL SLOWER
+                    else if (Vector4D::Equals(powerUps[i].GetColour(), Vector4D(0, 0, 1, 1), 3))
+                    {
+                        if (speedModifier * 0.95f > 0.5f)
+                        {
+                            speedModifier = speedModifier * 0.95f;
+                        }
+                    }
                     powerUps.erase(powerUps.begin() + i);
                 }
             }
@@ -435,14 +451,38 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
         
         Shape *b = GetBrickToBeDestroyed(colId);
         brick->DestroyBrick();
-        if (Vector4D::Equals (b->GetColour(), Vector4D(1, 0, 0, 1), 3)) {
-            GeneratePowerUp(Vector4D(1, 0, 0, 1), brick->CalculatePosition());
+        // RED
+        if (Vector4D::Equals (b->GetColour(), colors[3], 3)) {
+            colorDestructionCount[colors[3]]++;
+            if (colorDestructionCount[colors[3]] == 3) {
+                GeneratePowerUp(colors[3], brick->CalculatePosition());
+                colorDestructionCount[colors[3]] = 0;
+            }
         }
-        else if (Vector4D::Equals(b->GetColour(), Vector4D(0, 1, 0, 1), 3)) {
-            GeneratePowerUp(Vector4D(0, 1, 0, 1), brick->CalculatePosition());
+        // GREEN
+        else if (Vector4D::Equals(b->GetColour(), colors[1], 3)) {
+            colorDestructionCount[colors[1]]++;
+            if (colorDestructionCount[colors[1]] == 3) {
+                GeneratePowerUp(colors[1], brick->CalculatePosition());
+                colorDestructionCount[colors[1]] = 0;
+            }
         }
-        
-        
+        // BLUE
+        else if (Vector4D::Equals(b->GetColour(), colors[2], 3)) {
+            colorDestructionCount[colors[2]]++;
+            if (colorDestructionCount[colors[2]] == 3) {
+                GeneratePowerUp(colors[2], brick->CalculatePosition());
+                colorDestructionCount[colors[2]] = 0;
+            }
+        }
+        // YELLOW
+        else if (Vector4D::Equals(b->GetColour(), colors[0], 3)) {
+            colorDestructionCount[colors[0]]++;
+            if (colorDestructionCount[colors[0]] == 3) {
+                GeneratePowerUp(colors[0], brick->CalculatePosition());
+                colorDestructionCount[colors[0]] = 0;
+            }
+        }
         return true;
     }
 
@@ -759,14 +799,12 @@ void Application::PowerUpsPhysicsUpdate(float delta) {
 
 void Application::BallPhysicsUpdate(float delta, Shape& shape)
 {   
-    // Update velocity based on force
-    //shape.velocity = shape.velocity + (shape.force * delta * 0.001f);
     if (isPaused) {
         return;
     }
     
     // Update position
-    Vector4D newPosition = shape.position + (shape.velocity * delta);
+    Vector4D newPosition = shape.position + (shape.velocity * speedModifier * delta);
 	shape.SetPosition(newPosition);
 
     // Update model matrix
@@ -789,6 +827,7 @@ void Application::startGame() {
     shapes.clear();
     shapes.reserve(bricksPerStory*numberOfStories + paddleCount + 2);
     paddleLength = initialPaddleLength;
+    speedModifier = initialSpeedModifierValue;
         
     orthographicProj = false;
     float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
@@ -1072,8 +1111,16 @@ void Application::renderTexture(GLuint texture) {
 }
 
 void Application::on_resize(int width, int height) {
+    float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
+    float scale = height / 48.0f;
     // Calls the default implementation to set the class variables.
     IApplication::on_resize(width, height);
+    if (orthographicProj) {
+        cam.setprojectionMatrixToOrthographic(-scale, scale, -scale * aspectRatio, scale * aspectRatio, -10.0f, 10.0f);
+    }
+    else {
+        cam.setprojectionMatrixToPerspective(45.0f, aspectRatio, 0.1f, 100.0f);
+    }
     // Changes the viewport.
     glViewport(0, 0, width, height);
 }

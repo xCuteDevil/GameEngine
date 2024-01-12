@@ -29,6 +29,7 @@ public:
     Vector4D operator-(const Vector4D& subtrahend) const; // Vector subtraction
     Vector4D operator*(double scalar) const;       // Scalar multiplication
     Vector4D operator/(double scalar) const;       // Scalar division
-
+    bool operator<(const Vector4D& rhs) const;
+        
     float* ToArray() const;
 };

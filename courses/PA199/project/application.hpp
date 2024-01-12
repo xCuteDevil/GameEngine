@@ -15,6 +15,7 @@
 #include "Engine/Matrix4x4/Matrix4x4.hpp"
 #include "Engine/PolarCoords/PolarCoords.hpp"
 #include <tuple>
+#include <map>
 
 
 class Application : public IApplication {
@@ -58,6 +59,9 @@ private:
     const int powerUpStacks = ballStacks*0.5f;
     const int powerUpSectors = ballSectors*0.5f;
     float powerUpSpeed = ballSpeed*0.8f;
+    std::map<Vector4D, int> colorDestructionCount;
+    const float initialSpeedModifierValue = 1.0;
+    float speedModifier = initialSpeedModifierValue;
     
     // Ground configuration
     const float groundDiameter = 28.0f;
