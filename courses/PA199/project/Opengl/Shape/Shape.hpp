@@ -7,6 +7,7 @@
 #include <vector>
 #include <cassert>
 #include "glad/glad.h"
+#include <random>
 
 
 //using namespace std;
@@ -19,6 +20,7 @@ class Shape {
       Vector4D colour;
 	  unsigned int texture = 0;
       Matrix4x4 shapeMatrix;
+      int durability = 1;
 
       unsigned int vertex_array;
       unsigned int vertex_buffer;
@@ -67,6 +69,9 @@ class Shape {
       void ConfigureVertexAttributes();
       void SetArrays();
 	  void SetPosition(Vector4D position);
+	  void SetDurability(int durability);
+	  void SetRandomColour();
+	  void SetColour(Vector4D colour);
       
       bool DestroyBrick();
 	  bool RecursiveBrickFall(Matrix4x4 prevBrickModelMatrix, bool alreadyDestroyedOne);
@@ -74,6 +79,14 @@ class Shape {
       void StartCooldown(float duration);
       bool isOnCooldown = false;
       float cooldownTimer = 0.0f; // time elapsed
+
+      std::vector<Vector4D> colours = {
+        Vector4D(1, 1, 0, 1), // Yellow
+        Vector4D(0, 1, 0, 1), // Green
+        Vector4D(0, 0, 1, 1), // Blue
+        Vector4D(1, 0, 0, 1), // Red
+        Vector4D(0, 0, 0, 1)  // Black
+      };
 	  
 };
 

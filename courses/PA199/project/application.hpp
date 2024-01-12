@@ -22,18 +22,15 @@ class Application : public IApplication {
     // Variables
     // ----------------------------------------------------------------------------
 private:
-    bool orthographicProj = false;
-    bool left = false, right = false;
-
     // Brick configuration
     const int bricksPerStory = 12;
-    const int numberOfStories = 4;
+    const int numberOfStories = 5;
     const float brickHeight = 1.0f;
     const float brickWidth = 1.5f;
     const int brickDetail = 5;
     const float brickInnerRadius = 2.5f;
     const float brickOuterRadius = brickInnerRadius + brickWidth;
-
+    float brickCooldownDuration = 150.0f; // time to wait
 
     // Paddle configuration
     const int paddleCount = 3;
@@ -42,21 +39,26 @@ private:
     const float paddleInnerRadius = 11.0f;
     float paddleOuterRadius = paddleInnerRadius + paddleWidth;
     const int paddleDetail = 36;
+    float paddleSpeed = 0.015f;
+    float paddleCooldownDuration = 200.0f; // time to wait
 
+    // Ball
+    const float ballRadius = 0.5f;
+    const float ballStartPosCoefOffset = 1.0f;
+    const int ballShapesVectorIndex = numberOfStories * bricksPerStory + 1;
+    float ballSpeed = 0.01f;
+    
     // Ground configuration
     const float groundDiameter = 28.0f;
-
-    bool collisionDetected = false;
-    double prevRad = 0.0f;
 
     GLuint vertex_shader;
     GLuint fragment_shader;
     GLuint shader_program;
-    
-	GLuint texture_vertex_shader;
-	GLuint texture_fragment_shader;
+
+    GLuint texture_vertex_shader;
+    GLuint texture_fragment_shader;
     GLuint texture_program;
-    
+
     GLuint vertex_array;
     GLuint vertex_buffer;
     GLuint index_buffer;
@@ -65,34 +67,25 @@ private:
     GLuint texture_vertex_array;
     GLuint texture_vertex_buffer;
     GLuint texture_index_buffer;
-    
 
-    
     Camera cam;
 
     // Control
-	bool isPaused = false;
-	bool isGameOver = false;
+    bool isPaused = false;
+    bool isGameOver = false;
     bool isGameWon = false;
-    int playerLives = 3;
-	int bricksLeft = bricksPerStory * numberOfStories;
+    int playerLives = 30;
+    int bricksLeft = bricksPerStory * numberOfStories;
+    bool orthographicProj = false;
+    bool left = false, right = false;
+    bool isBallInGame = false;
+    bool collisionDetected = false;
 
     // Textures
     GLuint textureWin;
     GLuint textureLoss;
     GLuint texturePause;
-
-    bool isBallInGame = false;
-    const float ballRadius = 0.5f;
-    const float ballStartPosCoefOffset = 1.0f;
-    const int ballShapesVectorIndex = numberOfStories * bricksPerStory + 1;
-    float ballSpeed = 0.01f; // Should be between 0.01f and 0.02f
-	float paddleSpeed = 0.015f;
-
-    float brickCooldownDuration = 150.0f; // time to wait
-    float paddleCooldownDuration = 1000.0f; // time to wait
-
-
+    
     // ----------------------------------------------------------------------------
     // Variables (Geometry)
     // ----------------------------------------------------------------------------
@@ -136,8 +129,10 @@ public:
     void on_key_pressed(int key, int scancode, int action, int mods) override;
 
     void startGame();
+    void resetGame();
 
     void BallPhysicsUpdate(float delta, Shape& shape);
+    void MovePaddle(Shape* paddle, bool moveLeft, float delta);
 
     void BroadPhaseDetection(Shape& ball);
 
@@ -155,10 +150,11 @@ public:
     void SetDirection(Shape& shape, Vector4D newDirection, float speed);
 
     std::tuple<float, float, float> NormalizeCollisionAngles(float ballAngle, float obstacleStartAngle, float obstacleEndAngle);
-	Vector4D ClosestPointOnTheLine(Vector4D lineStart, Vector4D lineEnd, Vector4D point);
+    Vector4D ClosestPointOnTheLine(Vector4D lineStart, Vector4D lineEnd, Vector4D point);
     void CheckWinLossConditions();
-	void ResetCollisionCooldowns(float delta);
-    
+    void ResetCollisionCooldowns(float delta);
+    Vector4D AdjustDeflectionDirection(Shape& ball, Vector4D realDirection, float similarityThreshold, float blendFactor);
+
     std::vector<Vector4D> colors = {
         Vector4D(1, 1, 0, 1), // Yellow
         Vector4D(0, 1, 0, 1), // Green
@@ -168,4 +164,3 @@ public:
     };
     void renderTexture(GLuint texture);
 };
-

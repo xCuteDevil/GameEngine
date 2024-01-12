@@ -382,12 +382,26 @@ bool Shape::DestroyBrick() {
     return(RecursiveBrickFall(GetModelMatrix(), true));
 }
 
+void Shape::SetDurability(int dur)
+{
+    this->durability = dur;
+}
+
+
 bool Shape::RecursiveBrickFall(Matrix4x4 prevBrickModelMatrix, bool destroyThisBrick)
 {
     // If we are to destroy this brick and it's not already destroyed, do so.
     if (destroyThisBrick && !destroyed)
     {
+        durability--;
         destroyed = true;
+        if (durability > 0) {
+            destroyed = false;
+            destroyThisBrick = false;
+            SetRandomColour();
+            return false;
+        }
+        
         // The current brick has been destroyed, so we don't want to destroy the next one.
         destroyThisBrick = false;
     }
@@ -400,6 +414,29 @@ bool Shape::RecursiveBrickFall(Matrix4x4 prevBrickModelMatrix, bool destroyThisB
         SetModelMatrix(prevBrickModelMatrix);
     }
     return destroyed;
+}
+
+
+void Shape::SetRandomColour() {
+    // Check if the colors vector has at least 5 elements
+    if (colours.size() < 5) {
+        throw std::runtime_error("Insufficient color options");
+    }
+
+    // Create a random engine and a distribution
+    std::random_device rd;  // Random device
+    std::mt19937 gen(rd()); // Seed the generator
+    std::uniform_int_distribution<> distr(0, 3);
+
+    // Get a random index and return the corresponding color
+    int randomIndex = distr(gen);
+    SetColour(colours[randomIndex]);
+    return;
+}
+
+void Shape::SetColour(Vector4D colour)
+{
+	this->colour = colour;
 }
 
 

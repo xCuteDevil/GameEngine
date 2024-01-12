@@ -177,11 +177,18 @@ Application::~Application()
 
 void Application::CheckWinLossConditions() {
     // Win Condition
-    if (bricksLeft <= 0) {
+   /*if (bricksLeft <= 0) {
         isGameWon = true;
-    }
+    }*/
+    /*for (int i = 0; i <= bricksPerStory; i++) {
+		if (!groundLevelBricks[i]->IsColumnDestroyed()) {
+            break;
+        }else{
+            isGameWon = true;
+        }
+    }*/
 	// Loss Condition
-    else if (playerLives <= 0)
+    if (playerLives <= 0)
     {
         isGameOver = true;
     }
@@ -194,32 +201,30 @@ void Application::CheckWinLossConditions() {
     isBallInGame = false;
 }
 
-void Application::update(float delta) {
+void Application::MovePaddle(Shape* paddle, bool moveLeft, float delta) {
     auto toRadians = [](float degrees) { return degrees * 3.14159265358979323846f / 180.0f; };
+    Matrix4x4 model = paddle->GetModelMatrix();
+    float rotationDirection = moveLeft ? 1.0f : -1.0f; // Positive for left, negative for right
+    float speed = paddleSpeed / (toRadians(90) * delta);
+    model = model * Matrix4x4(1.0).Rotate(toRadians(90) * delta * speed * rotationDirection, Vector4D(0, 1, 0, 0));
+    paddle->SetModelMatrix(model);
+}
+
+void Application::update(float delta) {
     
 	// Win/Lose Condition
     CheckWinLossConditions();
 	if (isGameWon || isGameOver) return;
-    
-    // Movement left
+
+    // Movement left and right
     if (left) {
-        for (int i = 0; i < paddles.size(); ++i) {
-            Shape* p = paddles[i];
-			Matrix4x4 model = p->GetModelMatrix();
-            float speed = paddleSpeed/(toRadians(90) * delta);
-            model = model * Matrix4x4(1.0).Rotate(toRadians(90) * delta * speed, Vector4D(0, 1, 0, 0));
-			p->SetModelMatrix(model);
+        for (Shape* p : paddles) {
+            MovePaddle(p, true, delta);
         }
     }
-
-    // Movement right
     else if (right) {
-        for (int i = 0; i < paddles.size(); ++i) {
-            Shape* p = paddles[i];
-            Matrix4x4 model = p->GetModelMatrix(  );
-            float speed = paddleSpeed / (toRadians(-90) * delta);
-            model = model * Matrix4x4(1.0).Rotate(toRadians(90) * delta * speed, Vector4D(0, 1, 0, 0));
-            p->SetModelMatrix(model);
+        for (Shape* p : paddles) {
+            MovePaddle(p, false, delta);
         }
     }
 
@@ -296,12 +301,12 @@ void Application::BroadPhaseDetection(Shape& ball) {
 
 bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAngle, float distanceFromCenter, int colId)
 {
-    int nextBrickId = (colId + 1)%bricksPerStory;
+    int nextBrickId = (colId + 1) % bricksPerStory;
     int prevBrickId = colId - 1;
     if (prevBrickId < 0) {
         prevBrickId = bricksPerStory - 1;
     }
-		
+
     Vector4D brickPos = brick->CalculatePosition();
     PolarCoords brickPolarCoords = PolarCoords::Cartesian2PC(brickPos.x, brickPos.z);
 
@@ -326,7 +331,7 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
     Vector4D center(0, 0, 0, 1);
 
     float BallRadiusAngle = atan(ballRadius / distanceFromCenter);
-    
+
     // Brick front/back collision
     std::tie(ballAngleNormalised, brickStartNormalised, brickEndNormalised) = NormalizeCollisionAngles(ballAngle, brickStartAngle, brickEndAngle);
     if (IsBallWithinObstacleRange(ballAngleNormalised, brickStartNormalised, brickEndNormalised) && !brick->IsColumnDestroyed()/* && !((distanceFromCenter < brickOuterRadius) && (distanceFromCenter > brickInnerRadius))*/)
@@ -338,12 +343,12 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
         }
         return true;
     }
-    
+
     // Brick start-side collision
     std::tie(ballAngleNormalised, brickStartNormalised, brickEndNormalised) = NormalizeCollisionAngles(ballAngle, brickStartAngle - BallRadiusAngle, brickStartAngle);
-    if (IsBallWithinObstacleRange(ballAngleNormalised, brickStartNormalised, brickEndNormalised) && !brick->IsColumnDestroyed() && !(!groundLevelBricks[prevBrickId]->IsColumnDestroyed()) )
+    if (IsBallWithinObstacleRange(ballAngleNormalised, brickStartNormalised, brickEndNormalised) && !brick->IsColumnDestroyed() && !(!groundLevelBricks[prevBrickId]->IsColumnDestroyed()))
     {
-		
+
         Vector4D outerBrickRadiusStartVertex = Vector4D(startVertex.x, 0, startVertex.z);
         Vector4D directionToCenter = center - outerBrickRadiusStartVertex;
         directionToCenter = directionToCenter.UnitVector();
@@ -358,9 +363,9 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
             // Corner collision
             return false;
         }*/
-        
+
         SetDirection(ball, newDirection, ballSpeed);
-        
+
         if (brick->DestroyBrick()) {
             bricksLeft--;
         }
@@ -369,7 +374,7 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
 
     // Brick end-side collision
     std::tie(ballAngleNormalised, brickStartNormalised, brickEndNormalised) = NormalizeCollisionAngles(ballAngle, brickEndAngle, brickEndAngle + BallRadiusAngle);
-    if (IsBallWithinObstacleRange(ballAngleNormalised, brickStartNormalised, brickEndNormalised) && !brick->IsColumnDestroyed() && !(!groundLevelBricks[nextBrickId]->IsColumnDestroyed()) )
+    if (IsBallWithinObstacleRange(ballAngleNormalised, brickStartNormalised, brickEndNormalised) && !brick->IsColumnDestroyed() && !(!groundLevelBricks[nextBrickId]->IsColumnDestroyed()))
     {
         Vector4D outerBrickRadiusStartVertex = Vector4D(startVertex.x, 0, startVertex.z);
         Vector4D directionToCenter = center - outerBrickRadiusStartVertex;
@@ -503,13 +508,20 @@ bool Application::ProcessPaddleCollision(Shape& ball, Shape* paddle, float ballA
         newDirection = Reflect(ball.velocity, collisionNormal);
 
         // Apply the slice effect based on the paddle's velocity
-        float frictionCoefficient = 0.05f;
+        float frictionCoefficient = 0.06f;
         Vector4D sliceForce = paddleVelocity * frictionCoefficient;
         newDirection = newDirection + sliceForce;
+        newDirection = newDirection.UnitVector();
 
+		// If the newDirection is too close to the paddle's direction, adjust it
+        newDirection = AdjustDeflectionDirection(ball, newDirection, 0.30f, 0.1f);
+        
         SetDirection(ball, newDirection.UnitVector(), ballSpeed);
         return true;
     }
+
+    
+        
 
     // Start-side paddle collision
     std::tie(ballAngleNormalised, paddleStartNormalised, paddleEndNormalised) = NormalizeCollisionAngles(ballAngle, paddleStartAngle - BallRadiusAngle, paddleEndAngle);
@@ -550,6 +562,34 @@ bool Application::ProcessPaddleCollision(Shape& ball, Shape* paddle, float ballA
         return true;
     }
     return false;
+}
+
+/*Vector4D Application::AdjustDeflectionDirectionb(Shape& ball, Vector4D realDirection, float similarityThreshold, float blendFactor) {
+
+    // Calculate the dot product to measure similarity
+    float similarity = realDirection.UnitVector().DotProduct(ball.velocity.UnitVector());
+
+    if (similarity > similarityThreshold && similarity > 0) {
+        Vector4D ballPositionNormalized = Vector4D(ball.position.x, 0, ball.position.z);
+        ballPositionNormalized = Vector4D(-ball.position.x, 0, -ball.position.z).UnitVector();
+
+        realDirection = realDirection * (1.0f - blendFactor) + ballPositionNormalized * blendFactor;
+    }
+    return realDirection.UnitVector();
+}*/
+
+Vector4D Application::AdjustDeflectionDirection(Shape& ball, Vector4D realDirection, float similarityThreshold, float blendFactor) {
+
+    // Calculate the dot product to measure similarity
+    float similarity = realDirection.UnitVector().DotProduct(ball.velocity.UnitVector());
+
+    if (abs(similarity) < similarityThreshold) {
+        Vector4D ballPositionNormalized = Vector4D(ball.position.x, 0, ball.position.z);
+        ballPositionNormalized = Vector4D(-ball.position.x, 0, -ball.position.z).UnitVector();
+        
+        realDirection = realDirection * (1.0f - blendFactor) + ballPositionNormalized * blendFactor;
+    }
+    return realDirection.UnitVector();
 }
 
 Vector4D Application::ClosestPointOnTheLine(Vector4D lineStart, Vector4D lineEnd, Vector4D point)
@@ -674,7 +714,10 @@ void Application::startGame() {
             Vector4D brickColor = colors[(i+story+1) % colors.size()];
 
             Brick brick(Vector4D(0,0,0,1), brickInnerRadius, brickWidth, brickHeight, bricksPerStory, brickDetail, brickColor);
-
+            if (Vector4D::Equals(brickColor, Vector4D(0, 0, 0, 1), 3)) {
+                // if black
+                brick.SetDurability(2);
+            }
             // Initial transformation: place the brick at the calculated position and rotate to face outward
             Matrix4x4 brickModel = Matrix4x4::Translate(0, position.y, 0)
                 * Matrix4x4(1.0).Rotate(-currentAngleRadians, Vector4D(0, 1, 0, 0));
@@ -879,6 +922,16 @@ void Application::on_mouse_move(double x, double y) {}
 
 void Application::on_mouse_button(int button, int action, int mods) {}
 
+void Application::resetGame() {
+    isGameOver = false;
+    isGameWon = false;
+    isPaused = false;
+    playerLives = 3;
+    paddleSpeed = 0.015f;
+    bricksLeft = bricksPerStory * numberOfStories;
+    startGame();
+}
+
 void Application::on_key_pressed(int key, int scancode, int action, int mods) {
     float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
     float scale = height / 48.0f;
@@ -898,13 +951,7 @@ void Application::on_key_pressed(int key, int scancode, int action, int mods) {
     // KEY PRESS
     if (action == GLFW_PRESS) {
 		if (isGameOver || isGameWon) {
-            isGameOver = false;
-            isGameWon = false;
-            isPaused = false;
-			playerLives = 3;
-            paddleSpeed = 0.015f;
-            bricksLeft = bricksPerStory * numberOfStories;
-            startGame();
+            resetGame();
 			return;
 		}
         switch (key) {
