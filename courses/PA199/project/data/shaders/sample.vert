@@ -22,12 +22,6 @@ void main() {
     out_data.normal_ws = normalize(mat3(model) * normal);
     
     out_data.tex_coord = texcoord;
-
-    // Calculate the position of the vertex in clip space.
-    //gl_Position = view * projection * position_world;
+    
     gl_Position = projection * view * model * vec4(position, 1.0f);
-    //gl_Position = vec4(position, 1.0f) * model * view * projection;
-    //gl_Position = position_world * view * projection;
-    //gl_Position = position_world * projection * view;
-    //gl_Position = position_world * view * projection;
 }

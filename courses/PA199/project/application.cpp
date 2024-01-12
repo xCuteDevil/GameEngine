@@ -272,8 +272,6 @@ void Application::update(float delta) {
                         if (paddleCount * (paddleLength * 1.05f) < 360.0f)
                         {
                             paddleLength = paddleLength * 1.05f;
-                            for (Shape* paddle : paddles) {
-                            }
                             RegeneratePaddles();
                         }
                     }
@@ -283,8 +281,6 @@ void Application::update(float delta) {
                         if (paddleCount * (paddleLength * 0.95f) > 100.0f)
                         {
                             paddleLength = paddleLength * 0.95f;
-                            for (Shape* paddle : paddles) {
-                            }
                             RegeneratePaddles();
                         }
                     }
@@ -368,6 +364,11 @@ void Application::BroadPhaseDetection(Shape& ball) {
     {
         isBallInGame = false;
         playerLives--;
+        // remove power-ups
+        paddleLength = initialPaddleLength;
+        speedModifier = initialSpeedModifierValue;
+        RegeneratePaddles();
+        
         powerUps.clear();
     }
     // Potential Collision with bricks
@@ -444,45 +445,14 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
 
     // Brick front/back collision
     std::tie(ballAngleNormalised, brickStartNormalised, brickEndNormalised) = NormalizeCollisionAngles(ballAngle, brickStartAngle, brickEndAngle);
-    if (IsBallWithinObstacleRange(ballAngleNormalised, brickStartNormalised, brickEndNormalised) && !brick->IsColumnDestroyed()/* && !((distanceFromCenter < brickOuterRadius) && (distanceFromCenter > brickInnerRadius))*/)
+    if (IsBallWithinObstacleRange(ballAngleNormalised, brickStartNormalised, brickEndNormalised) && !brick->IsColumnDestroyed())
     {
         Vector4D collisionNormal = CalculateCollisionNormal(ballPosition, Vector4D(brickPos.x, ballPosition.y, brickPos.z));
         ReflectBall(ball, collisionNormal, ballSpeed);
         
         Shape *b = GetBrickToBeDestroyed(colId);
         brick->DestroyBrick();
-        // RED
-        if (Vector4D::Equals (b->GetColour(), colors[3], 3)) {
-            colorDestructionCount[colors[3]]++;
-            if (colorDestructionCount[colors[3]] == 3) {
-                GeneratePowerUp(colors[3], brick->CalculatePosition());
-                colorDestructionCount[colors[3]] = 0;
-            }
-        }
-        // GREEN
-        else if (Vector4D::Equals(b->GetColour(), colors[1], 3)) {
-            colorDestructionCount[colors[1]]++;
-            if (colorDestructionCount[colors[1]] == 3) {
-                GeneratePowerUp(colors[1], brick->CalculatePosition());
-                colorDestructionCount[colors[1]] = 0;
-            }
-        }
-        // BLUE
-        else if (Vector4D::Equals(b->GetColour(), colors[2], 3)) {
-            colorDestructionCount[colors[2]]++;
-            if (colorDestructionCount[colors[2]] == 3) {
-                GeneratePowerUp(colors[2], brick->CalculatePosition());
-                colorDestructionCount[colors[2]] = 0;
-            }
-        }
-        // YELLOW
-        else if (Vector4D::Equals(b->GetColour(), colors[0], 3)) {
-            colorDestructionCount[colors[0]]++;
-            if (colorDestructionCount[colors[0]] == 3) {
-                GeneratePowerUp(colors[0], brick->CalculatePosition());
-                colorDestructionCount[colors[0]] = 0;
-            }
-        }
+        HandlePowerUpGeneration(b, brick->CalculatePosition());
         return true;
     }
 
@@ -510,12 +480,7 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
 
         Shape* b = GetBrickToBeDestroyed(colId);
         brick->DestroyBrick();
-        if (Vector4D::Equals(b->GetColour(), Vector4D(1, 0, 0, 1), 3)) {
-            GeneratePowerUp(Vector4D(1, 0, 0, 1), brick->CalculatePosition());
-        }
-        else if (Vector4D::Equals(b->GetColour(), Vector4D(0, 1, 0, 1), 3)) {
-            GeneratePowerUp(Vector4D(0, 1, 0, 1), brick->CalculatePosition());
-        }
+        HandlePowerUpGeneration(b, brick->CalculatePosition());
         
         return true;
     }
@@ -543,27 +508,56 @@ bool Application::ProcessBrickCollision(Shape& ball, Shape* brick, float ballAng
 
         Shape* b = GetBrickToBeDestroyed(colId);
         brick->DestroyBrick();
-        if (Vector4D::Equals(b->GetColour(), Vector4D(1, 0, 0, 1), 3)) {
-            GeneratePowerUp(Vector4D(1, 0, 0, 1), brick->CalculatePosition());
-        }
-        else if (Vector4D::Equals(b->GetColour(), Vector4D(0, 1, 0, 1), 3)) {
-            GeneratePowerUp(Vector4D(0, 1, 0, 1), brick->CalculatePosition());
-        }
+        HandlePowerUpGeneration(b, brick->CalculatePosition());
         
         return true;
     }
 
     // Brick front/back collision
-    std::tie(ballAngleNormalised, brickStartNormalised, brickEndNormalised) = NormalizeCollisionAngles(ballAngle, brickStartAngle, brickEndAngle);
-    if (IsBallWithinObstacleRange(ballAngleNormalised, brickStartNormalised, brickEndNormalised) && !brick->IsColumnDestroyed()/* && !((distanceFromCenter < brickOuterRadius) && (distanceFromCenter > brickInnerRadius))*/)
+    /*std::tie(ballAngleNormalised, brickStartNormalised, brickEndNormalised) = NormalizeCollisionAngles(ballAngle, brickStartAngle, brickEndAngle);
+    if (IsBallWithinObstacleRange(ballAngleNormalised, brickStartNormalised, brickEndNormalised) && !brick->IsColumnDestroyed())
     {
         Vector4D collisionNormal = CalculateCollisionNormal(ballPosition, Vector4D(brickPos.x, ballPosition.y, brickPos.z));
         ReflectBall(ball, collisionNormal, ballSpeed);
-        if (brick->DestroyBrick()) {
-        }
-        return true;
-    }
+        Shape* b = GetBrickToBeDestroyed(colId);
+        brick->DestroyBrick();
+        HandlePowerUpGeneration(b, brick->CalculatePosition());
+    }*/
     return false;
+}
+
+void Application::HandlePowerUpGeneration(Shape *brick, Vector4D position) {
+    if (Vector4D::Equals(brick->GetColour(), colors[3], 3)) {
+        colorDestructionCount[colors[3]]++;
+        if (colorDestructionCount[colors[3]] == 3) {
+            GeneratePowerUp(colors[3], position);
+            colorDestructionCount[colors[3]] = 0;
+        }
+    }
+    // GREEN
+    else if (Vector4D::Equals(brick->GetColour(), colors[1], 3)) {
+        colorDestructionCount[colors[1]]++;
+        if (colorDestructionCount[colors[1]] == 3) {
+            GeneratePowerUp(colors[1], position);
+            colorDestructionCount[colors[1]] = 0;
+        }
+    }
+    // BLUE
+    else if (Vector4D::Equals(brick->GetColour(), colors[2], 3)) {
+        colorDestructionCount[colors[2]]++;
+        if (colorDestructionCount[colors[2]] == 3) {
+            GeneratePowerUp(colors[2], position);
+            colorDestructionCount[colors[2]] = 0;
+        }
+    }
+    // YELLOW
+    else if (Vector4D::Equals(brick->GetColour(), colors[0], 3)) {
+        colorDestructionCount[colors[0]]++;
+        if (colorDestructionCount[colors[0]] == 3) {
+            GeneratePowerUp(colors[0], position);
+            colorDestructionCount[colors[0]] = 0;
+        }
+    }
 }
 
 Vector4D Application::CalculateCollisionNormal(const Vector4D& ballPosition, const Vector4D& obstaclePosition)
@@ -672,10 +666,6 @@ bool Application::ProcessPaddleCollision(Shape& ball, Shape* paddle, float ballA
         SetDirection(ball, newDirection.UnitVector(), ballSpeed);
         return true;
     }
-
-    
-        
-
     // Start-side paddle collision
     std::tie(ballAngleNormalised, paddleStartNormalised, paddleEndNormalised) = NormalizeCollisionAngles(ballAngle, paddleStartAngle - BallRadiusAngle, paddleEndAngle);
     if (IsBallWithinObstacleRange(ballAngleNormalised, paddleStartNormalised, paddleEndNormalised))
@@ -856,12 +846,11 @@ void Application::startGame() {
         for (int i = 0; i < bricksPerStory; ++i) {
             float currentAngleDegrees = i * (360.0f / bricksPerStory);
             float currentAngleRadians = toRadians(currentAngleDegrees);
-
-            // Calculate the position in polar coordinates and then convert to Cartesian
+            
             Vector4D position(
-                (brickWidth + brickInnerRadius) * sin(currentAngleRadians), // X coordinate
+                (brickWidth + brickInnerRadius) * sin(currentAngleRadians),
                 yOffset,  // Adjust Y for story offset
-                (brickWidth + brickInnerRadius) * cos(currentAngleRadians), // Z coordinate
+                (brickWidth + brickInnerRadius) * cos(currentAngleRadians),
                 1
             );
 
@@ -918,21 +907,14 @@ void Application::startGame() {
     for (int i = 0; i < paddleCount; ++i) {
         float angleDegrees = i * (360.0f / paddleCount);
         float angleRadians = toRadians(angleDegrees);
-
-        // Calculate the position on the XZ plane using polar coordinates
+        
         float x = paddleInnerRadius * cos(angleRadians);
         float z = paddleInnerRadius * sin(angleRadians);
-
-        // Create paddle and position it on the XZ plane at the calculated position
+        
         Paddle paddle(Vector4D(x, 0.0f, z, 1), paddleInnerRadius, paddleWidth, paddleHeight, toRadians(paddleLength), paddleDetail, Vector4D(1.0f, 0.0f, 0.0f, 0.0f));
 
-        // Rotate paddle around the global Y-axis to face outward from the center
         Matrix4x4 model = Matrix4x4::Rotate(angleRadians, Vector4D(0, 1, 0, 0));
-
-        // Apply the model matrix to the paddle
         paddle.SetModelMatrix(model);
-
-        // Add the paddle to the shapes and paddles vector
         shapes.push_back(paddle);
         paddles.push_back(&shapes.back());
     }
@@ -955,21 +937,16 @@ void Application::RegeneratePaddles() {
     for (int i = 0; i < paddleCount; ++i) {
         float angleDegrees = i * (360.0f / paddleCount);
         float angleRadians = toRadians(angleDegrees);
-
-        // Calculate the position on the XZ plane using polar coordinates
+        
         float x = paddleInnerRadius * cos(angleRadians);
         float z = paddleInnerRadius * sin(angleRadians);
-
-        // Create paddle and position it on the XZ plane at the calculated position
+        
         Paddle paddle(Vector4D(x, 0.0f, z, 1), paddleInnerRadius, paddleWidth, paddleHeight, toRadians(paddleLength), paddleDetail, Vector4D(1.0f, 0.0f, 0.0f, 0.0f));
-
-        // Rotate paddle around the global Y-axis to face outward from the center
+        
         Matrix4x4 model = Matrix4x4::Rotate(angleRadians, Vector4D(0, 1, 0, 0));
-
-        // Apply the model matrix to the paddle
+        
         paddle.SetModelMatrix(paddleModelMatrices[i]);
-
-        // Add the paddle to the shapes and paddles vector
+        
         shapes.push_back(paddle);
         paddles.push_back(&shapes.back());
     }

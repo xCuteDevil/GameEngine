@@ -10,7 +10,6 @@
 #include "glad/glad.h"
 #include "Opengl/Camera/Camera.hpp"
 #include "Opengl/Shape/Shape.hpp"
-#include "Opengl/Mesh/Mesh.hpp"
 #include "Engine/Vector4D/Vector4D.hpp"
 #include "Engine/Matrix4x4/Matrix4x4.hpp"
 #include "Engine/PolarCoords/PolarCoords.hpp"
@@ -25,7 +24,7 @@ class Application : public IApplication {
 private:
     // Brick configuration
     const int bricksPerStory = 12;
-    const int numberOfStories = 2;
+    const int numberOfStories = 5;
     const float brickHeight = 0.9f;
     const float brickWidth = 1.5f;
     const int brickDetail = 5;
@@ -44,7 +43,7 @@ private:
     const int paddleDetail = 36;
     float initialPaddleSpeed = 0.05f;
     float paddleSpeed = initialPaddleSpeed;
-    float paddleCooldownDuration = 30.0f; // time to wait
+    float paddleCooldownDuration = 200.0f; // time to wait
 
     // Ball configuration
     const float ballRadius = 0.5f;
@@ -90,7 +89,7 @@ private:
     bool isPaused = false;
     bool isGameOver = false;
     bool isGameWon = false;
-    int playerLives = 30;
+    int playerLives = 3;
     bool orthographicProj = false;
     bool left = false, right = false;
     bool isBallInGame = false;
@@ -179,6 +178,7 @@ public:
     void RegeneratePaddles();
 
     void RenderVectorOfObjects(std::vector<Shape> vectorOfObjects);
+    void HandlePowerUpGeneration(Shape *brick, Vector4D position);
 
     std::vector<Vector4D> colors = {
         Vector4D(1, 1, 0, 1), // Yellow

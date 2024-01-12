@@ -9,11 +9,6 @@
 #include "glad/glad.h"
 #include <random>
 
-
-//using namespace std;
- 
-//struct Vertex { float x, y, z, u, v; };
-
 class Shape {
    protected:
       Vector4D origin;
@@ -43,7 +38,7 @@ class Shape {
          origin = _origin;
 		 colour = _colour;
       }
-      virtual ~Shape() {}  // Virtual destructor
+      virtual ~Shape() {}
       std::vector<Vertex> GenerateMesh();
 
       // Getters
@@ -144,12 +139,11 @@ public:
 class Brick : public Shape {
 public:
     float innerRadius;
-    float width; // Renamed from thickness for consistency
+    float width;
     float height;
-    int detail; // Assuming detail represents the number of subdivisions or detail level
+    int detail;
     int count; 
 
-    // Aligning the parameter names and ordering with Paddle
     Brick(Vector4D _origin, float _innerRadius, float _width, float _height, int _count, int _detail, Vector4D _colour)
         : Shape(_origin, _colour), innerRadius(_innerRadius), width(_width), height(_height), count(_count), detail(_detail) {
         std::pair<std::vector<Vertex>, std::vector<unsigned int>> meshData = GenerateMesh(innerRadius, width, height, count, detail);

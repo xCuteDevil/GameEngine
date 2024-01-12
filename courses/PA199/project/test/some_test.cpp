@@ -245,17 +245,6 @@ TEST(matrix_suite, MultiplyByVector) {
     EXPECT_EQ(res.ToStdArray(), expectedVArray);
 }
 
-/*TEST(matrix_suite, RMatrix2OB) {
-    double mArray[16] = {1,0,2,0,0,3,0,4,0,0,5,0,6,0,0,7};
-    Matrix4x4 m1(mArray);
-
-    //double expectedArray[16] = { 1,5,9,13,2,6,10,14,3,7,11,15,4,8,12,16 };
-    std::array<double, 16> expectedArray{ 1,5,9,13,2,6,10,14,3,7,11,15,4,8,12,16 };
-
-    Matrix4x4 res = m1.RMatrix2OB();
-    EXPECT_EQ(res.ToStdArray(), expectedArray);
-}*/
-
 // QUATERNIONS
 
 TEST(quaternion_suite, Conjugate) {

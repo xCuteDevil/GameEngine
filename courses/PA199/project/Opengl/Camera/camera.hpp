@@ -27,12 +27,10 @@ public:
     
     // Getters
     Matrix4x4 GetProjection() const;
-
-    //Matrix4x4 CreateView(Vector4D _cameraPos, Vector4D _cameraTarget);
-    void UpdateViewMatrix(const Vector4D& cameraPos, const Vector4D& cameraTarget, const Vector4D& upVector = Vector4D(0.0, 1.0, 0.0, 0.0));
     Matrix4x4 GetView() const;
     
-    //static Matrix4x4 CreateView(const Vector4D& cameraPos, const Vector4D& cameraTarget, const Vector4D& upVector);
+    void UpdateViewMatrix(const Vector4D& cameraPos, const Vector4D& cameraTarget, const Vector4D& upVector = Vector4D(0.0, 1.0, 0.0, 0.0));
+    
 
 public:
     Matrix4x4 view;

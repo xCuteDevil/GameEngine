@@ -6,11 +6,9 @@ std::pair<std::vector<Vertex>, std::vector<unsigned int>> Circle::GenerateMesh()
 {
     std::vector<Vertex> vertices;
     int numberOfVertices = numberOfSides + 1;
+    
+    float nz = 1.0f;
 
-    // Normal for a flat circle facing upwards on the XY plane is (0, 0, 1)
-    float nz = 1.0f; // Use -1.0f if the circle should face downwards
-
-    // Center vertex with normal pointing up
     Vertex centerVertex = { 0.0f, 0.0f, 0.0f, 0.5f, 0.5f, 0.0f, 0.0f, nz };
     vertices.push_back(centerVertex);
 
@@ -20,7 +18,7 @@ std::pair<std::vector<Vertex>, std::vector<unsigned int>> Circle::GenerateMesh()
         float x = radius * cosf(theta);
         float y = radius * sinf(theta);
 
-        // Texture coordinates could be more accurately calculated if needed
+        // Texture coordinates
         float u = (cosf(theta) + 1.0f) / 2.0f;
         float v = (sinf(theta) + 1.0f) / 2.0f;
 
@@ -100,14 +98,6 @@ std::pair<std::vector<Vertex>, std::vector<unsigned int>> Sphere::GenerateMesh()
 
 std::pair<std::vector<Vertex>, std::vector<unsigned int>> Brick::GenerateMesh(
     float innerRadius, float width, float height, int count, int detail) {
-
-    /*std::vector<Vertex> vertices;
-    std::vector<unsigned int> indices;
-
-    float outerRadius = innerRadius + width;
-    float brickAngle = (2.0f * M_PI) / count;
-    float angleIncrement = brickAngle / detail;*/
-    
 	Paddle p(GetOrigin(), innerRadius, width, height, 2*M_PI/count, detail, GetColour());
     return { p.GetVertices(), p.GetIndices()};
 }
